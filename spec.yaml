@@ -1,0 +1,494 @@
+id: etd
+
+requirements:
+  - name: ecoscope-platform
+    version: ">=2.15.0,<2.16.2"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.1.0rc20"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: pydeck
+    version: 0.9.2
+    channel: conda-forge
+
+  - name: ecoscope-workflows-ext-wd
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+
+rjsf-overrides:
+  properties:
+    Subject Group.properties.subject_observations.properties.subject_group_name.ecoscope:transform:
+      - transformer: EarthRangerEnumResolver
+        transformer_kws:
+          type: subject_group_name
+          depends_on: properties.er_client.properties.data_source.properties.name
+    Group Data.properties.groupers.properties.groupers.ecoscope:transform:
+      - transformer: EarthRangerEnumResolver
+        transformer_kws:
+          type: spatial_feature_group
+          depends_on: properties.er_client.properties.data_source.properties.name
+    Group Data.properties.groupers.properties.groupers.description: ""
+    Elliptical Time-Density (ETD).properties.etd_args.properties.opacity.default: 0.700000
+    ETD Percentile Table.properties.etd_pct_table.properties.table_config.default:
+      enable_sorting: true
+      enable_filtering: true
+      enable_download: true
+      hide_header: false
+    persist_etd_pct_grouped.description: >-
+      File formats to export the ETD percentile-area data in.
+    persist_etd_pct_grouped.properties.filetypes.ecoscope:advanced: true
+  $defs:
+    # Restrict grouping to subject attributes that actually exist on the trajectory
+    # (after the rename step below), matching the subject-tracking workflow.
+    ValueGrouper.properties.index_name.oneOf:
+      - const: subject_name
+        title: Subject Name
+      - const: subject_subtype
+        title: Subject Subtype
+      - const: subject_sex
+        title: Subject Sex
+  uiSchema:
+    Group Data.groupers.groupers.items.anyOf:
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+      - ui:options:
+          label: false
+    base_map_defs.base_maps.items.ui:options.label: false
+
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
+workflow:
+  - name: Workflow Details
+    id: workflow_details
+    task: set_workflow_details
+
+  - name: Data Source
+    id: er_client
+    task: set_er_connection
+
+  - name: Time Range
+    id: time_range
+    task: set_time_range
+    partial:
+      time_format: "%d %b %Y"
+
+  # ── Fetch & Prepare Trajectory ────────────────────────────────────────────
+  #
+  # `subject_group_name` is left unset here so it becomes a live-populated
+  # dropdown of real subject groups from the connected EarthRanger server (see
+  # the `ecoscope:transform` override above), instead of a hand-typed string.
+
+  - title: Subject Group
+    type: task-group
+    description: Choose the EarthRanger subject group to compute an ETD home range for.
+    tasks:
+      - name: null
+        id: subject_observations
+        task: get_subjectgroup_observations
+        partial:
+          filter: clean
+          client: ${{ workflow.er_client.return }}
+          time_range: ${{ workflow.time_range.return }}
+          raise_on_empty: true
+          include_details: false
+          include_subjectsource_details: false
+
+  # ── Grouping ───────────────────────────────────────────────────────────────
+  #
+  # Optional: split the trajectory (by subject name/subtype/sex, by time period,
+  # and/or by a spatial feature group) so ETD is computed once per group instead
+  # of pooling every individual in the subject group together. Left unset,
+  # `set_groupers` returns `AllGrouper` and `split_groups` passes the whole
+  # trajectory through as a single group - matching subject-tracking.
+  #
+  # `resolved_groupers` only does real work for spatial (zone-based) groupers -
+  # it fetches the actual polygon boundaries so `add_spatial_index` can assign
+  # each trajectory point to a zone. For plain category/time groupers it's a
+  # passthrough (verified directly against `resolve_spatial_feature_groups_for_
+  # spatial_groupers`'s source: it only mutates `SpatialGrouper` entries).
+
+  - title: Group Data
+    type: task-group
+    description: >-
+      Optionally group the data by subject, time period, or spatial feature group to
+      compute ETD separately per group.
+    tasks:
+      - id: groupers
+        task: set_groupers
+
+      - id: spatial_group_ids
+        task: extract_spatial_grouper_feature_group_names
+        partial:
+          groupers: ${{ workflow.groupers.return }}
+
+      - id: fetch_spatial_feature_groups
+        task: get_spatial_features_group
+        partial:
+          client: ${{ workflow.er_client.return }}
+        map:
+          argnames: spatial_features_group_name
+          argvalues: ${{ workflow.spatial_group_ids.return }}
+
+      - id: resolved_groupers
+        task: resolve_spatial_feature_groups_for_spatial_groupers
+        partial:
+          groupers: ${{ workflow.groupers.return }}
+          spatial_feature_groups: ${{ workflow.fetch_spatial_feature_groups.return }}
+
+  - name: Transform Observations to Relocations
+    id: subject_reloc
+    task: process_relocations
+    partial:
+      observations: ${{ workflow.subject_observations.return }}
+      relocs_columns:
+        - groupby_col
+        - fixtime
+        - junk_status
+        - geometry
+        - extra__subject__name
+        - extra__subject__subject_subtype
+        - extra__subject__sex
+      filter_point_coords:
+        - x: 180.000000
+          y: 90.000000
+        - x: 0.000000
+          y: 0.000000
+        - x: 1.000000
+          y: 1.000000
+
+  - name: Convert Relocations to Trajectory
+    id: subject_traj
+    task: relocations_to_trajectory
+    partial:
+      relocations: ${{ workflow.subject_reloc.return }}
+
+  - name: Add Temporal Index to Trajectory
+    id: traj_temporal_index
+    task: add_temporal_index
+    partial:
+      df: ${{ workflow.subject_traj.return }}
+      time_col: segment_start
+      groupers: ${{ workflow.resolved_groupers.return }}
+      cast_to_datetime: true
+      format: mixed
+
+  - name: Add Spatial Index to Trajectory
+    id: traj_spatial_index
+    task: add_spatial_index
+    partial:
+      gdf: ${{ workflow.traj_temporal_index.return }}
+      groupers: ${{ workflow.resolved_groupers.return }}
+
+  - name: Rename Subject Columns for Grouping
+    id: subject_traj_named
+    task: map_columns
+    partial:
+      df: ${{ workflow.traj_spatial_index.return }}
+      drop_columns: []
+      retain_columns: []
+      rename_columns:
+        extra__name: subject_name
+        extra__subject_subtype: subject_subtype
+        extra__sex: subject_sex
+      raise_if_not_found: true
+
+  - name: Split Trajectory by Group
+    id: subject_traj_groups
+    task: split_groups
+    partial:
+      df: ${{ workflow.subject_traj_named.return }}
+      groupers: ${{ workflow.resolved_groupers.return }}
+
+  - name: Map Base Layers
+    id: base_map_defs
+    task: set_base_maps
+
+  # ── Elliptical Time-Density (ETD) Home Range ──────────────────────────────
+  #
+  # `set_etd_args_with_opacity` bundles the grid settings (crs, cell size, nodata,
+  # band count, max speed factor, expansion factor, percentiles, map opacity) into
+  # one widget, shared by both the percentile calculation and the GeoTIFF raster
+  # below - so they always describe the same utilization-distribution surface.
+
+  - title: Elliptical Time-Density (ETD)
+    type: task-group
+    description: >-
+      Home range / utilization distribution for the subject group's trajectory.
+    tasks:
+      - id: etd_args
+        task: set_etd_args_with_opacity
+        partial:
+          nodata_value: nan
+          band_count: 1
+
+      - name: Get Map Opacity
+        id: etd_opacity
+        task: get_opacity_from_combined_params
+        partial:
+          combined_params: ${{ workflow.etd_args.return }}
+
+      - name: Calculate ETD Percentiles per Group
+        id: etd_percentiles_grouped
+        task: call_etd_from_combined_params
+        partial:
+          combined_params: ${{ workflow.etd_args.return }}
+        mapvalues:
+          argnames: trajectory_gdf
+          argvalues: ${{ workflow.subject_traj_groups.return }}
+
+      - name: Merge ETD Percentiles Across Groups
+        id: etd_percentiles
+        task: merge_df
+        partial:
+          iterables: ${{ workflow.etd_percentiles_grouped.return }}
+
+      - name: Persist ETD Percentile Table (GeoParquet)
+        id: persist_etd_pct_geoparquet
+        task: persist_df
+        partial:
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filetype: geoparquet
+          filename: etd_home_range_percentiles
+          df: ${{ workflow.etd_percentiles.return }}
+
+      - name: Persist ETD Percentile Table (CSV)
+        id: persist_etd_pct_csv
+        task: persist_df
+        partial:
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filetype: csv
+          filename: etd_home_range_percentiles
+          df: ${{ workflow.etd_percentiles.return }}
+
+      - name: Generate ETD Raster per Group (GeoTIFF)
+        id: etd_raster
+        task: ecoscope_workflows_ext_wd.tasks.generate_etd_raster
+        partial:
+          combined_params: ${{ workflow.etd_args.return }}
+          filename: etd_home_range_raster
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+        map:
+          argnames:
+            - group_key
+            - trajectory_gdf
+          argvalues: ${{ workflow.subject_traj_groups.return }}
+
+  # Per-group files, hash-named to match the dashboard's per-view "Files" tab
+  # (same CompositeFilter -> hash encoding the FE uses for `views_json` keys),
+  # in addition to the single combined table above.
+  - name: Export Percentiles
+    id: persist_etd_pct_grouped
+    task: ecoscope_workflows_ext_custom.tasks.io.persist_grouped_dfs_for_results_download
+    partial:
+      grouped_dfs: ${{ workflow.etd_percentiles_grouped.return }}
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_prefix: etd_home_range_percentiles
+      sanitize: false
+
+  # ── ETD Home Range Map + Table (per group, merged into dashboard widgets) ──
+  #
+  # Mirrors subject-tracking's td_map_widget/td_grouped_map_widget pattern: draw
+  # each group's map/table separately, persist each with an auto-generated (hash
+  # based) filename since these are dashboard-only artifacts, wrap each as a
+  # single-view widget, then merge all views into one widget with a view per
+  # group - matching the `merge_widget_views` mechanism exactly.
+
+  - title: ETD Home Range Map
+    type: task-group
+    description: Percentile choropleth map of the ETD home range, colored by isopleth level.
+    tasks:
+      - name: Cast Percentile Column
+        id: etd_pct_to_string
+        task: convert_column_values_to_string
+        partial:
+          columns:
+            - percentile
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_percentiles_grouped.return }}
+
+      - name: Color Map - ETD Percentiles
+        id: etd_pct_colormap
+        task: apply_color_map
+        partial:
+          input_column_name: percentile
+          colormap: RdYlGn_r
+          output_column_name: percentile_color
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_pct_to_string.return }}
+
+      - name: Reproject ETD Percentiles for Map (WGS84)
+        id: etd_pct_wgs84
+        task: convert_crs
+        partial:
+          crs: EPSG:4326
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_pct_colormap.return }}
+
+      - name: Format Area for Display
+        id: etd_pct_area_display
+        task: map_values_with_unit
+        partial:
+          input_column_name: area_sqkm
+          output_column_name: area_sqkm
+          original_unit: "km²"
+          new_unit: "km²"
+          decimal_places: 2
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_pct_wgs84.return }}
+
+      - name: Rename Percentile/Area for Display
+        id: etd_pct_display
+        task: map_columns
+        partial:
+          drop_columns: []
+          retain_columns: []
+          rename_columns:
+            percentile: Percentile
+            area_sqkm: Area
+          raise_if_not_found: true
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_pct_area_display.return }}
+
+      - name: ETD Percentile Layer
+        id: etd_pct_layer
+        task: create_geojson_layer
+        partial:
+          layer_style:
+            filled: true
+            stroked: false
+            get_fill_color: percentile_color
+            get_line_color: percentile_color
+            get_line_width: 0
+            opacity: ${{ workflow.etd_opacity.return }}
+          legend:
+            title: "Home Range Percentiles"
+            label_column: Percentile
+            label_suffix: " %"
+            color_column: percentile_color
+            sort: ascending
+          tooltip_columns:
+            - Percentile
+            - Area
+          zoom: true
+          data_url: null
+        mapvalues:
+          argnames: geodataframe
+          argvalues: ${{ workflow.etd_pct_display.return }}
+
+      - name: Draw ETD Home Range Map per Group
+        id: etd_map
+        task: draw_map
+        partial:
+          tile_layers: ${{ workflow.base_map_defs.return }}
+          static: false
+          title: null
+          output_type: html
+          view_state: null
+          max_zoom: 15
+          legend_style:
+            placement: bottom-right
+        mapvalues:
+          argnames: geo_layers
+          argvalues: ${{ workflow.etd_pct_layer.return }}
+
+      - name: Persist ETD Home Range Map (HTML) per Group
+        id: persist_etd_map_html
+        task: persist_text
+        partial:
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: etd_home_range_map
+        mapvalues:
+          argnames: text
+          argvalues: ${{ workflow.etd_map.return }}
+
+      - name: ETD Map Widget Views
+        id: etd_map_widget_views
+        task: create_map_widget_single_view
+        partial:
+          title: "ETD Home Range Map"
+        map:
+          argnames:
+            - view
+            - data
+          argvalues: ${{ workflow.persist_etd_map_html.return }}
+
+      - name: ETD Map Widget
+        id: etd_map_widget
+        task: merge_widget_views
+        partial:
+          widgets: ${{ workflow.etd_map_widget_views.return }}
+
+  - title: ETD Percentile Table
+    type: task-group
+    description: Percentile / area table for the ETD home range, as a dashboard widget.
+    tasks:
+      - name: Select Percentile Table Columns
+        id: etd_pct_table_columns
+        task: map_columns
+        partial:
+          drop_columns: []
+          retain_columns:
+            - Percentile
+            - Area
+          rename_columns: {}
+          raise_if_not_found: true
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.etd_pct_display.return }}
+
+      - id: etd_pct_table
+        task: draw_table
+        mapvalues:
+          argnames: dataframe
+          argvalues: ${{ workflow.etd_pct_table_columns.return }}
+
+      - name: Persist ETD Percentile Table (HTML) per Group
+        id: persist_etd_pct_table_html
+        task: persist_text
+        partial:
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          filename_suffix: etd_percentile_table
+        mapvalues:
+          argnames: text
+          argvalues: ${{ workflow.etd_pct_table.return }}
+
+      - name: ETD Percentile Table Widget Views
+        id: etd_pct_table_widget_views
+        task: create_plot_widget_single_view
+        partial:
+          title: "ETD Percentile Table"
+        map:
+          argnames:
+            - view
+            - data
+          argvalues: ${{ workflow.persist_etd_pct_table_html.return }}
+
+      - name: ETD Percentile Table Widget
+        id: etd_pct_table_widget
+        task: merge_widget_views
+        partial:
+          widgets: ${{ workflow.etd_pct_table_widget_views.return }}
+
+  - name: Create Dashboard
+    id: dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.workflow_details.return }}
+      widgets:
+        - ${{ workflow.etd_map_widget.return }}
+        - ${{ workflow.etd_pct_table_widget.return }}
+      groupers: ${{ workflow.resolved_groupers.return }}
+      time_range: ${{ workflow.time_range.return }}
