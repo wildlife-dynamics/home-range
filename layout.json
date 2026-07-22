@@ -1,0 +1,4 @@
+[
+  {"i": "0", "widget_id": 0, "x": 0, "y": 0, "w": 10, "h": 14, "minW": 4, "minH": 5, "static": false},
+  {"i": "1", "widget_id": 1, "x": 0, "y": 14, "w": 10, "h": 10, "minW": 3, "minH": 4, "static": false}
+]

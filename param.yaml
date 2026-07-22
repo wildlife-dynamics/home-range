@@ -1,0 +1,14 @@
+workflow_details:
+  name: "Elephants ETD Home Range"
+  description: ""
+er_client:
+  data_source:
+    name: mep
+time_range:
+  since: "2000-01-01T00:00:00.000Z"
+  until: "2020-01-01T00:00:00.000Z"
+subject_observations:
+  subject_group_name: "Elephants"
+groupers:
+  groupers:
+    - index_name: subject_name

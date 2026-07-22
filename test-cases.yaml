@@ -1,0 +1,18 @@
+default:
+  name: Default
+  description: ETD home range for the Elephants subject group, grouped by subject, 2000-01-01 to 2020-01-01.
+  params:
+    workflow_details:
+      name: "Elephants ETD Home Range"
+      description: "Test run of the ETD home range workflow."
+    er_client:
+      data_source:
+        name: mep
+    time_range:
+      since: "2000-01-01T00:00:00.000Z"
+      until: "2020-01-01T00:00:00.000Z"
+    subject_observations:
+      subject_group_name: "Elephants"
+    groupers:
+      groupers:
+        - index_name: subject_name

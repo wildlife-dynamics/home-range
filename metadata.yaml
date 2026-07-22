@@ -1,0 +1,14 @@
+name: Elliptical Time-Density (ETD) Home Range
+
+author:
+  - name: Zakariya Husayn
+    organization: Wildlife Dynamics
+    email: zakariya@wildlifedynamics.com
+
+description: >
+  Computes a subject group's home range using the Elliptical Time-Density (ETD) model - a
+  trajectory-based, nonparametric estimate of the utilization distribution (UD) derived from the
+  group's movement behaviour. Outputs the raw UD surface as a GeoTIFF and a percentile-area table
+  (isopleth levels, e.g. 50/60/70/80/90/99.999%) as GeoParquet and CSV.
+
+citation: []
