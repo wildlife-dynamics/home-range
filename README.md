@@ -15,12 +15,11 @@ subject, time period, or spatial feature group - and wires the map and table int
 
 Every run writes these to `$ECOSCOPE_WORKFLOWS_RESULTS`:
 
-- **Dashboard** (`result.json`) - a map widget (percentile isopleth map) and a table widget
-  (percentile/area table), with one view per group if groupers are used.
-- **CSV** (`etd_home_range_percentiles.csv`) - one row per group per isopleth level: `percentile`,
-  `geometry`, `area_sqkm`.
-- **GeoTIFF** (`etd_home_range_raster.tif`) - the raw ETD utilization-distribution surface
-  (continuous density, one band), one per group.
+| Output | File | Contents |
+|---|---|---|
+| Dashboard | `result.json` | A map widget (percentile isopleth map) and a table widget (percentile/area table), with one view per group if groupers are used. |
+| CSV | `etd_home_range_percentiles.csv` | One row per group per isopleth level: `percentile`, `geometry`, `area_sqkm`. |
+| GeoTIFF | `etd_home_range_raster.tif` | The raw ETD utilization-distribution surface (continuous density, one band), one per group. |
 
 ## Setup
 
@@ -39,6 +38,3 @@ cd ecoscope-workflows-etd-workflow
 ECOSCOPE_WORKFLOWS_RESULTS="file:///tmp/workflows/etd/output" \
   pixi run ecoscope-workflows-etd-workflow run --config-file ../param.yaml --execution-mode sequential --no-mock-io
 ```
-
-`./dev/regenerate_rjsf.sh` regenerates just `rjsf.json` from the already-compiled env (no network,
-~10s) - useful when iterating on `rjsf-overrides` without a full recompile.
