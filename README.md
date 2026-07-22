@@ -16,7 +16,7 @@ minimum convex polygon) alongside ETD going forward.
 
 ## Outputs
 
-Every run writes a dashboard, a CSV, and a GeoTIFF to `$ECOSCOPE_WORKFLOWS_RESULTS`.
+Every run generates a dashboard, a percentiles dataframe, and a GeoTIFF of the home range.
 
 ## Setup
 
