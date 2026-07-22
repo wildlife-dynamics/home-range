@@ -1,7 +1,7 @@
 # Home Range
 
-Computes a subject group's **home range** - the area an animal traverses during its normal
-activities of foraging, mating, and caring for young (Burt, 1943) - from its EarthRanger tracking
+Computes a subject group's **home range** (the area an animal traverses during its normal
+activities of foraging, mating, and caring for young, per Burt, 1943) from its EarthRanger tracking
 data.
 
 Currently implemented using the **Elliptical Time-Density (ETD)** model: a trajectory-based,
