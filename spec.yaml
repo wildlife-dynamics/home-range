@@ -75,14 +75,36 @@ rjsf-overrides:
       - const: subject_sex
         title: Subject Sex
   uiSchema:
+    # Positional, matching the narrowed schema anyOf order above: TemporalGrouper,
+    # ValueGrouper (SpatialGrouper removed).
     Group Data.groupers.groupers.items.anyOf:
       - ui:options:
           label: false
       - ui:options:
           label: false
+    base_map_defs.base_maps.items.ui:options.label: false
+    # Hide the redundant fieldset legend (e.g. "Elliptical Time-Density (ETD)") that
+    # repeats what the Method dropdown above it already shows selected. Same fix
+    # nested one level deeper for Grid Cell Size (auto_scale_or_custom_cell_size,
+    # ETD-only) - its own anyOf shows the same "Auto-scale"/"Customize" redundancy.
+    # This array is positional, matching the schema's own anyOf order exactly:
+    # McpMethodArgs (index 0, plain), EtdMethodArgs (index 1, has the nested Grid
+    # Cell Size override), BbmmMethodArgs (index 2, plain).
+    Home Range Method.home_range_args.args.anyOf:
       - ui:options:
           label: false
-    base_map_defs.base_maps.items.ui:options.label: false
+      - ui:options:
+          label: false
+        auto_scale_or_custom_cell_size:
+          ui:options:
+            label: false
+          anyOf:
+            - ui:options:
+                label: false
+            - ui:options:
+                label: false
+      - ui:options:
+          label: false
 
 task-instance-defaults:
   skipif:
@@ -113,7 +135,7 @@ workflow:
 
   - title: Subject Group
     type: task-group
-    description: Choose the EarthRanger subject group to compute an ETD home range for.
+    description: Choose the EarthRanger subject group to compute a home range for.
     tasks:
       - name: null
         id: subject_observations
@@ -132,20 +154,20 @@ workflow:
     tasks:
       - name: Filters
         id: subject_filters
-        task: set_traj_filters
+        task: ecoscope.platform.tasks.config.set_traj_filters
 
   - id: bounding_box
-    task: get_bounding_box
+    task: ecoscope.platform.tasks.config.get_bounding_box
     partial:
       filters: ${{ workflow.subject_filters.return }}
 
   - id: filter_point_coords
-    task: get_filter_point_coords
+    task: ecoscope.platform.tasks.config.get_filter_point_coords
     partial:
       filters: ${{ workflow.subject_filters.return }}
 
   - id: segment_filter
-    task: get_segment_filter
+    task: ecoscope.platform.tasks.config.get_segment_filter
     partial:
       filters: ${{ workflow.subject_filters.return }}
 
@@ -178,7 +200,7 @@ workflow:
     type: task-group
     description: >-
       Optionally group the data by subject, time period, or spatial feature group to
-      compute ETD separately per group.
+      compute the home range separately per group.
     tasks:
       - id: groupers
         task: set_groupers
@@ -265,51 +287,164 @@ workflow:
     id: base_map_defs
     task: set_base_maps
 
-  # ── Elliptical Time-Density (ETD) Home Range ──────────────────────────────
+  # ── Home Range (ETD or MCP, user-selectable) ──────────────────────────────
   #
-  # `set_etd_args_with_opacity` bundles the grid settings (crs, cell size, nodata,
-  # band count, max speed factor, expansion factor, percentiles, map opacity) into
-  # one widget, shared by both the percentile calculation and the GeoTIFF raster
-  # below - so they always describe the same utilization-distribution surface.
+  # A single "Method" field lets the user pick ETD or MCP; only the selected
+  # method's own settings are present in the submitted data - no shared
+  # discriminator field, EtdMethodArgs/McpMethodArgs are told apart structurally
+  # (see _meta_tasks.py). call_home_range_from_args dispatches to whichever
+  # method was chosen and returns the same percentile/geometry/area_sqkm shape
+  # either way, so the map/table below don't need to know or care which method
+  # actually ran. The GeoTIFF raster always reuses whatever ETD parameters were
+  # set (or falls back to ETD's own defaults if MCP is selected instead), since
+  # MCP has no raster/UD surface of its own.
 
-  - title: Elliptical Time-Density (ETD)
+  - title: Home Range Method
     type: task-group
-    description: >-
-      Home range / utilization distribution for the subject group's trajectory.
+    description: Choose which home-range estimation method to compute for the map and table.
     tasks:
-      - id: etd_args
-        task: set_etd_args_with_opacity
-        partial:
-          nodata_value: nan
-          band_count: 1
+      - id: home_range_args
+        task: set_home_range_args
 
-      - name: Get Map Opacity
-        id: etd_opacity
-        task: get_opacity_from_combined_params
-        partial:
-          combined_params: ${{ workflow.etd_args.return }}
+      - id: home_range_rings_correction
+        task: set_bool_var
 
-      - name: Calculate ETD Percentiles per Group
-        id: etd_percentiles_grouped
-        task: call_etd_from_combined_params
-        partial:
-          combined_params: ${{ workflow.etd_args.return }}
-        mapvalues:
-          argnames: trajectory_gdf
-          argvalues: ${{ workflow.subject_traj_groups.return }}
+  # MCP/BBMM have no ETD-shaped raster/UD surface, so this (and etd_raster below,
+  # via its own default any_dependency_skipped condition catching this task's
+  # SKIP_SENTINEL output) is skipped entirely when a non-ETD method is selected -
+  # rather than silently falling back to ETD's defaults and spending real compute
+  # on a file nobody configured or asked for.
+  - name: Derive ETD Raster Parameters
+    id: etd_raster_params
+    task: get_etd_raster_params_from_args
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+        - any_is_non_etd_method_args
+    partial:
+      args: ${{ workflow.home_range_args.return }}
 
-      - name: Generate ETD Raster per Group (GeoTIFF)
-        id: etd_raster
-        task: generate_etd_raster
-        partial:
-          combined_params: ${{ workflow.etd_args.return }}
-          filename: etd_home_range_raster
-          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-        map:
-          argnames:
-            - group_key
-            - trajectory_gdf
-          argvalues: ${{ workflow.subject_traj_groups.return }}
+  - name: Generate ETD Raster per Group (GeoTIFF)
+    id: etd_raster
+    task: ecoscope_workflows_ext_custom.tasks.analysis.generate_etd_raster
+    partial:
+      combined_params: ${{ workflow.etd_raster_params.return }}
+      filename: etd_home_range_raster
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+    map:
+      argnames:
+        - group_key
+        - trajectory_gdf
+      argvalues: ${{ workflow.subject_traj_groups.return }}
+
+  # Mirrors etd_raster_params/etd_raster above - skipped entirely unless BBMM is
+  # selected. Unlike ETD, no extra combined-params fields are needed (nodata/band_count
+  # aren't user-configurable for BBMM), so get_bbmm_raster_params_from_args just
+  # narrows the type rather than building a separate combined-params object.
+  - name: Derive BBMM Raster Parameters
+    id: bbmm_raster_params
+    task: get_bbmm_raster_params_from_args
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+        - any_is_non_bbmm_method_args
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+
+  - name: Generate BBMM Raster per Group (GeoTIFF)
+    id: bbmm_raster
+    task: generate_bbmm_raster
+    partial:
+      combined_params: ${{ workflow.bbmm_raster_params.return }}
+      filename: bbmm_home_range_raster
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+    map:
+      argnames:
+        - group_key
+        - trajectory_gdf
+      argvalues: ${{ workflow.subject_traj_groups.return }}
+
+  - name: Derive Relocations per Group (for MCP points overlay)
+    id: subject_reloc_groups
+    task: convert_trajectory_to_relocations
+    mapvalues:
+      argnames: trajectory_gdf
+      argvalues: ${{ workflow.subject_traj_groups.return }}
+
+  - name: Calculate Home Range Percentiles per Group
+    id: home_range_percentiles_grouped
+    task: call_home_range_from_args
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+    mapvalues:
+      argnames: trajectory_gdf
+      argvalues: ${{ workflow.subject_traj_groups.return }}
+
+  - name: Legend Title
+    id: home_range_legend_title
+    task: set_string_var
+
+  - name: Get Map Opacity
+    id: home_range_opacity
+    task: get_home_range_opacity
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+
+  - name: Get Stroked Setting
+    id: home_range_stroked
+    task: get_stroked_from_args
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+
+  # ── MCP points overlay ──────────────────────────────────────────────────
+  #
+  # relocations_for_points_overlay returns the real relocations for MCP (the
+  # literal point subset its hull was computed from) or an empty GeoDataFrame
+  # for ETD (a density surface has no equivalent discrete subset) - an empty
+  # GeoJSON layer renders nothing, so this stays a no-op for ETD without any
+  # skipif/branching.
+
+  - name: Filter Points to MCP Only
+    id: home_range_points_gdf
+    task: relocations_for_points_overlay
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+    mapvalues:
+      argnames: relocations_gdf
+      argvalues: ${{ workflow.subject_reloc_groups.return }}
+
+  - name: Reproject Points for Map (WGS84)
+    id: home_range_points_wgs84
+    task: convert_crs
+    partial:
+      crs: EPSG:4326
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.home_range_points_gdf.return }}
+
+  - name: Home Range Points Layer
+    id: home_range_points_layer
+    task: create_geojson_layer
+    partial:
+      layer_style:
+        filled: true
+        stroked: true
+        get_fill_color: [0, 0, 0]
+        get_line_color: [0, 0, 0]
+        get_line_width: 0
+        get_point_radius: 1.5
+        point_radius_units: pixels
+        point_radius_min_pixels: 1
+        opacity: 0.8
+      legend: null
+      tooltip_columns: null
+      zoom: false
+      data_url: null
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.home_range_points_wgs84.return }}
 
   # Per-group files, hash-named to match the dashboard's per-view "Files" tab
   # (same CompositeFilter -> hash encoding the FE uses for `views_json` keys),
@@ -318,9 +453,9 @@ workflow:
     id: persist_etd_pct_grouped
     task: ecoscope_workflows_ext_custom.tasks.io.persist_grouped_dfs_for_results_download
     partial:
-      grouped_dfs: ${{ workflow.etd_percentiles_grouped.return }}
+      grouped_dfs: ${{ workflow.home_range_percentiles_grouped.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_prefix: etd_home_range_percentiles
+      filename_prefix: home_range_percentiles
       sanitize: false
 
   # ── ETD Home Range Map + Table (per group, merged into dashboard widgets) ──
@@ -331,10 +466,19 @@ workflow:
   # single-view widget, then merge all views into one widget with a view per
   # group - matching the `merge_widget_views` mechanism exactly.
 
-  - title: ETD Home Range Map
+  - title: Home Range Map
     type: task-group
-    description: Percentile choropleth map of the ETD home range, colored by isopleth level.
+    description: Percentile choropleth map of the home range, colored by isopleth level.
     tasks:
+      - name: Apply Rings Correction (if enabled)
+        id: home_range_pct_rings
+        task: apply_rings_correction_if_enabled
+        partial:
+          enabled: ${{ workflow.home_range_rings_correction.return }}
+        mapvalues:
+          argnames: percentiles_gdf
+          argvalues: ${{ workflow.home_range_percentiles_grouped.return }}
+
       - name: Cast Percentile Column
         id: etd_pct_to_string
         task: convert_column_values_to_string
@@ -343,7 +487,7 @@ workflow:
             - percentile
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.etd_percentiles_grouped.return }}
+          argvalues: ${{ workflow.home_range_pct_rings.return }}
 
       - name: Color Map - ETD Percentiles
         id: etd_pct_colormap
@@ -392,19 +536,23 @@ workflow:
           argnames: df
           argvalues: ${{ workflow.etd_pct_area_display.return }}
 
-      - name: ETD Percentile Layer
+      - name: Home Range Percentile Layer
         id: etd_pct_layer
         task: create_geojson_layer
         partial:
           layer_style:
             filled: true
-            stroked: false
+            # stroked comes from get_stroked_from_args - true (black outline)
+            # for MCP's few large convex hulls, false for ETD's many small raster-cell
+            # fragments (a black outline on every one looked like a messy quilted mesh).
+            # get_line_color/get_line_width are complete no-ops whenever stroked is false.
+            stroked: ${{ workflow.home_range_stroked.return }}
             get_fill_color: percentile_color
-            get_line_color: percentile_color
-            get_line_width: 0
-            opacity: ${{ workflow.etd_opacity.return }}
+            get_line_color: [0, 0, 0]
+            get_line_width: 2
+            opacity: ${{ workflow.home_range_opacity.return }}
           legend:
-            title: "Time Spent"
+            title: ${{ workflow.home_range_legend_title.return }}
             label_column: Percentile
             label_suffix: " %"
             color_column: percentile_color
@@ -412,11 +560,39 @@ workflow:
           tooltip_columns:
             - Percentile
             - Area
-          zoom: true
+          # false (not true) so draw_map's fit-bounds fallback fires and fits to the
+          # union of this layer + home_range_points_layer, rather than fitting to just
+          # this layer's bounds and potentially cropping out the MCP points overlay.
+          zoom: false
           data_url: null
         mapvalues:
           argnames: geodataframe
           argvalues: ${{ workflow.etd_pct_display.return }}
+
+      - name: Combine Percentile and Points Layers
+        id: home_range_combined_layers
+        task: groupbykey
+        partial:
+          iterables:
+            - ${{ workflow.etd_pct_layer.return }}
+            - ${{ workflow.home_range_points_layer.return }}
+
+      - name: Compute Fitted Map View per Group
+        id: home_range_view_state
+        task: compute_fitted_view_state
+        partial:
+          max_zoom: 15
+        mapvalues:
+          argnames: geo_layers
+          argvalues: ${{ workflow.home_range_combined_layers.return }}
+
+      - name: Combine Map Layers and Fitted View per Group
+        id: home_range_map_and_view
+        task: groupbykey
+        partial:
+          iterables:
+            - ${{ workflow.home_range_combined_layers.return }}
+            - ${{ workflow.home_range_view_state.return }}
 
       - name: Draw ETD Home Range Map per Group
         id: etd_map
@@ -426,13 +602,12 @@ workflow:
           static: false
           title: null
           output_type: html
-          view_state: null
           max_zoom: 15
           legend_style:
             placement: bottom-right
         mapvalues:
-          argnames: geo_layers
-          argvalues: ${{ workflow.etd_pct_layer.return }}
+          argnames: [geo_layers, view_state]
+          argvalues: ${{ workflow.home_range_map_and_view.return }}
 
       - name: Persist ETD Home Range Map (HTML) per Group
         id: persist_etd_map_html
@@ -448,7 +623,7 @@ workflow:
         id: etd_map_widget_views
         task: create_map_widget_single_view
         partial:
-          title: "ETD Home Range Map"
+          title: "Home Range Map"
         map:
           argnames:
             - view
@@ -461,9 +636,9 @@ workflow:
         partial:
           widgets: ${{ workflow.etd_map_widget_views.return }}
 
-  - title: ETD Percentile Table
+  - title: Percentile Table
     type: task-group
-    description: Percentile / area table for the ETD home range, as a dashboard widget.
+    description: Percentile / area table for the home range, as a dashboard widget.
     tasks:
       - name: Select Percentile Table Columns
         id: etd_pct_table_columns
@@ -506,7 +681,7 @@ workflow:
         id: etd_pct_table_widget_views
         task: create_plot_widget_single_view
         partial:
-          title: "ETD Percentile Table"
+          title: "Percentile Table"
         map:
           argnames:
             - view
