@@ -13,6 +13,17 @@ requirements:
     version: 0.9.2
     channel: conda-forge
 
+  # Unreleased MCP/home-range-selector work (feature/mcp-home-range branch in ecoscope)
+  # isn't published on ecoscope-platform yet, and that checkout is local-only (not
+  # shareable) - so for now it's migrated into ecoscope-workflows-ext-wd (see
+  # ecoscope_workflows_ext_wd/tasks/_home_range.py) and depended on as an editable
+  # local checkout of THAT (shared) repo instead. Once the real code is
+  # merged/released in ecoscope, this requirement should be removed and the task
+  # references below resolve from ecoscope-platform directly again.
+  - name: ecoscope-workflows-ext-wd
+    path: /Users/zak/Documents/w-dynamics/wd-partner-tasks/src/ecoscope-workflows-ext-wd
+    editable: true
+
 rjsf-overrides:
   properties:
     Subject Group.properties.subject_observations.properties.subject_group_name.ecoscope:transform:
