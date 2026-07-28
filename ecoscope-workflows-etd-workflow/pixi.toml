@@ -20,7 +20,7 @@ platforms = [
 linux = "4.4.0"
 
 [dependencies.ecoscope-platform]
-version = ">=2.15.0,<2.16.2"
+version = ">=2.15.0,<2.18.0"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
 
 [dependencies.ecoscope-workflows-ext-custom]
@@ -54,6 +54,10 @@ channel = "https://conda.anaconda.org/conda-forge/"
 [dependencies.wt-task]
 version = ">=0.1.3,<1.0.0"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
+
+[pypi-dependencies.ecoscope-workflows-ext-wd]
+path = "/Users/zak/Documents/w-dynamics/wd-partner-tasks/src/ecoscope-workflows-ext-wd"
+editable = true
 
 [feature.runner.dependencies.wt-runner]
 version = ">=0.3.0,<1.0.0"
