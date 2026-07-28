@@ -37,10 +37,29 @@ rjsf-overrides:
           type: spatial_feature_group
           depends_on: properties.er_client.properties.data_source.properties.name
     Group Data.properties.groupers.properties.groupers.description: ""
+    Group Data.properties.groupers.properties.groupers.default:
+      - index_name: subject_name
+    Group Data.properties.groupers.properties.groupers.items.anyOf:
+      - $ref: "#/$defs/TemporalGrouper"
+      - $ref: "#/$defs/ValueGrouper"
     Filter Data.properties.subject_filters.title: ""
-    Elliptical Time-Density (ETD).properties.etd_args.properties.opacity.default: 0.700000
+    Home Range Method.properties.home_range_rings_correction.properties.var.title: Fix Overlapping Percentile Transparency
+    Home Range Method.properties.home_range_rings_correction.properties.var.description: >-
+      Home-range percentile polygons are cumulative and nested (the 90% area fully
+      contains the 50% area, and so on), so when rendered with transparency, the
+      overlapping regions stack and look more opaque than areas covered by only one
+      percentile band. This is most noticeable at low opacity. Enabling this
+      converts the nested polygons into non-overlapping rings first, so opacity
+      renders uniformly across the map.
+    Home Range Method.properties.home_range_rings_correction.properties.var.default: false
+    Home Range Method.properties.home_range_rings_correction.properties.var.ecoscope:advanced: true
+    home_range_legend_title.properties.var.title: Legend Title
+    home_range_legend_title.properties.var.description: >-
+      The title shown above the percentile color legend on the map.
+    home_range_legend_title.properties.var.default: Home Range %
+    home_range_legend_title.properties.var.ecoscope:advanced: true
     persist_etd_pct_grouped.description: >-
-      File formats to export the ETD percentile-area data in.
+      File formats to export the home range percentile-area data in.
     persist_etd_pct_grouped.properties.filetypes.ecoscope:advanced: true
     persist_etd_pct_grouped.properties.filetypes.items.enum:
       - csv
