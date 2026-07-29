@@ -2,17 +2,17 @@
 import os
 from typing import Any
 
+from ecoscope.platform.tasks.config import get_bounding_box as get_bounding_box
 from ecoscope.platform.tasks.config import (
-    call_etd_from_combined_params as call_etd_from_combined_params,
+    get_filter_point_coords as get_filter_point_coords,
 )
-from ecoscope.platform.tasks.config import (
-    get_opacity_from_combined_params as get_opacity_from_combined_params,
-)
-from ecoscope.platform.tasks.config import (
-    set_etd_args_with_opacity as set_etd_args_with_opacity,
-)
+from ecoscope.platform.tasks.config import get_segment_filter as get_segment_filter
+from ecoscope.platform.tasks.config import set_bool_var as set_bool_var
+from ecoscope.platform.tasks.config import set_string_var as set_string_var
+from ecoscope.platform.tasks.config import set_traj_filters as set_traj_filters
 from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
+from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.groupby import split_groups as split_groups
 from ecoscope.platform.tasks.io import (
@@ -70,22 +70,45 @@ from ecoscope.platform.tasks.transformation import (
     resolve_spatial_feature_groups_for_spatial_groupers as resolve_spatial_feature_groups_for_spatial_groupers,
 )
 from ecoscope_workflows_ext_custom.tasks.analysis import (
-    generate_etd_raster as generate_etd_raster,
-)
-from ecoscope_workflows_ext_custom.tasks.config import (
-    get_bounding_box as get_bounding_box,
-)
-from ecoscope_workflows_ext_custom.tasks.config import (
-    get_filter_point_coords as get_filter_point_coords,
-)
-from ecoscope_workflows_ext_custom.tasks.config import (
-    get_segment_filter as get_segment_filter,
-)
-from ecoscope_workflows_ext_custom.tasks.config import (
-    set_traj_filters as set_traj_filters,
+    generate_etd_raster as generate_etd_raster_1,
 )
 from ecoscope_workflows_ext_custom.tasks.io import (
-    persist_grouped_dfs_for_results_download as persist_grouped_dfs_for_results_download,
+    persist_grouped_dfs_for_results_download as persist_grouped_dfs_for_results_download_1,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    any_is_non_bbmm_method_args as any_is_non_bbmm_method_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    any_is_non_etd_method_args as any_is_non_etd_method_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    apply_rings_correction_if_enabled as apply_rings_correction_if_enabled,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    call_home_range_from_args as call_home_range_from_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    compute_fitted_view_state as compute_fitted_view_state,
+)
+from ecoscope_workflows_ext_wd.tasks import generate_bbmm_raster as generate_bbmm_raster
+from ecoscope_workflows_ext_wd.tasks import (
+    get_bbmm_raster_params_from_args as get_bbmm_raster_params_from_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    get_etd_raster_params_from_args as get_etd_raster_params_from_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    get_home_range_opacity as get_home_range_opacity,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    get_stroked_from_args as get_stroked_from_args,
+)
+from ecoscope_workflows_ext_wd.tasks import (
+    relocations_for_points_overlay as relocations_for_points_overlay,
+)
+from ecoscope_workflows_ext_wd.tasks import set_home_range_args as set_home_range_args
+from ecoscope_workflows_ext_wd.tasks._home_range import (
+    convert_trajectory_to_relocations as convert_trajectory_to_relocations,
 )
 from wt_contracts import validate as _validate
 from wt_task import task
@@ -500,10 +523,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    etd_args = (
-        task(set_etd_args_with_opacity)
+    home_range_args = (
+        task(set_home_range_args)
         .validate()
-        .set_task_instance_id("etd_args")
+        .set_task_instance_id("home_range_args")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -513,14 +536,14 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(nodata_value="nan", band_count=1, **(params.get("etd_args") or {}))
+        .partial(**(params.get("home_range_args") or {}))
         .call()
     )
 
-    etd_opacity = (
-        task(get_opacity_from_combined_params)
+    home_range_rings_correction = (
+        task(set_bool_var)
         .validate()
-        .set_task_instance_id("etd_opacity")
+        .set_task_instance_id("home_range_rings_correction")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -530,31 +553,30 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(combined_params=etd_args, **(params.get("etd_opacity") or {}))
+        .partial(**(params.get("home_range_rings_correction") or {}))
         .call()
     )
 
-    etd_percentiles_grouped = (
-        task(call_etd_from_combined_params)
+    etd_raster_params = (
+        task(get_etd_raster_params_from_args)
         .validate()
-        .set_task_instance_id("etd_percentiles_grouped")
+        .set_task_instance_id("etd_raster_params")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
                 any_is_empty_df,
                 any_dependency_skipped,
+                any_is_non_etd_method_args,
             ],
             unpack_depth=1,
         )
-        .partial(
-            combined_params=etd_args, **(params.get("etd_percentiles_grouped") or {})
-        )
-        .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
+        .partial(args=home_range_args, **(params.get("etd_raster_params") or {}))
+        .call()
     )
 
     etd_raster = (
-        task(generate_etd_raster)
+        task(generate_etd_raster_1)
         .validate()
         .set_task_instance_id("etd_raster")
         .handle_errors()
@@ -567,7 +589,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            combined_params=etd_args,
+            combined_params=etd_raster_params,
             filename="etd_home_range_raster",
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             **(params.get("etd_raster") or {}),
@@ -575,8 +597,203 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .map(argnames=["group_key", "trajectory_gdf"], argvalues=subject_traj_groups)
     )
 
+    bbmm_raster_params = (
+        task(get_bbmm_raster_params_from_args)
+        .validate()
+        .set_task_instance_id("bbmm_raster_params")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+                any_is_non_bbmm_method_args,
+            ],
+            unpack_depth=1,
+        )
+        .partial(args=home_range_args, **(params.get("bbmm_raster_params") or {}))
+        .call()
+    )
+
+    bbmm_raster = (
+        task(generate_bbmm_raster)
+        .validate()
+        .set_task_instance_id("bbmm_raster")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            combined_params=bbmm_raster_params,
+            filename="bbmm_home_range_raster",
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params.get("bbmm_raster") or {}),
+        )
+        .map(argnames=["group_key", "trajectory_gdf"], argvalues=subject_traj_groups)
+    )
+
+    subject_reloc_groups = (
+        task(convert_trajectory_to_relocations)
+        .validate()
+        .set_task_instance_id("subject_reloc_groups")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("subject_reloc_groups") or {}))
+        .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
+    )
+
+    home_range_percentiles_grouped = (
+        task(call_home_range_from_args)
+        .validate()
+        .set_task_instance_id("home_range_percentiles_grouped")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            args=home_range_args, **(params.get("home_range_percentiles_grouped") or {})
+        )
+        .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
+    )
+
+    home_range_legend_title = (
+        task(set_string_var)
+        .validate()
+        .set_task_instance_id("home_range_legend_title")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("home_range_legend_title") or {}))
+        .call()
+    )
+
+    home_range_opacity = (
+        task(get_home_range_opacity)
+        .validate()
+        .set_task_instance_id("home_range_opacity")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(args=home_range_args, **(params.get("home_range_opacity") or {}))
+        .call()
+    )
+
+    home_range_stroked = (
+        task(get_stroked_from_args)
+        .validate()
+        .set_task_instance_id("home_range_stroked")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(args=home_range_args, **(params.get("home_range_stroked") or {}))
+        .call()
+    )
+
+    home_range_points_gdf = (
+        task(relocations_for_points_overlay)
+        .validate()
+        .set_task_instance_id("home_range_points_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(args=home_range_args, **(params.get("home_range_points_gdf") or {}))
+        .mapvalues(argnames=["relocations_gdf"], argvalues=subject_reloc_groups)
+    )
+
+    home_range_points_wgs84 = (
+        task(convert_crs)
+        .validate()
+        .set_task_instance_id("home_range_points_wgs84")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(crs="EPSG:4326", **(params.get("home_range_points_wgs84") or {}))
+        .mapvalues(argnames=["df"], argvalues=home_range_points_gdf)
+    )
+
+    home_range_points_layer = (
+        task(create_geojson_layer)
+        .validate()
+        .set_task_instance_id("home_range_points_layer")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            layer_style={
+                "filled": True,
+                "stroked": True,
+                "get_fill_color": [0, 0, 0],
+                "get_line_color": [0, 0, 0],
+                "get_line_width": 0,
+                "get_point_radius": 1.5,
+                "point_radius_units": "pixels",
+                "point_radius_min_pixels": 1,
+                "opacity": 0.8,
+            },
+            legend=None,
+            tooltip_columns=None,
+            zoom=False,
+            data_url=None,
+            **(params.get("home_range_points_layer") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=home_range_points_wgs84)
+    )
+
     persist_etd_pct_grouped = (
-        task(persist_grouped_dfs_for_results_download)
+        task(persist_grouped_dfs_for_results_download_1)
         .validate()
         .set_task_instance_id("persist_etd_pct_grouped")
         .handle_errors()
@@ -589,13 +806,35 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            grouped_dfs=etd_percentiles_grouped,
+            grouped_dfs=home_range_percentiles_grouped,
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename_prefix="etd_home_range_percentiles",
+            filename_prefix="home_range_percentiles",
             sanitize=False,
             **(params.get("persist_etd_pct_grouped") or {}),
         )
         .call()
+    )
+
+    home_range_pct_rings = (
+        task(apply_rings_correction_if_enabled)
+        .validate()
+        .set_task_instance_id("home_range_pct_rings")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=home_range_rings_correction,
+            **(params.get("home_range_pct_rings") or {}),
+        )
+        .mapvalues(
+            argnames=["percentiles_gdf"], argvalues=home_range_percentiles_grouped
+        )
     )
 
     etd_pct_to_string = (
@@ -612,7 +851,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(columns=["percentile"], **(params.get("etd_pct_to_string") or {}))
-        .mapvalues(argnames=["df"], argvalues=etd_percentiles_grouped)
+        .mapvalues(argnames=["df"], argvalues=home_range_pct_rings)
     )
 
     etd_pct_colormap = (
@@ -717,25 +956,82 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             layer_style={
                 "filled": True,
-                "stroked": False,
+                "stroked": home_range_stroked,
                 "get_fill_color": "percentile_color",
-                "get_line_color": "percentile_color",
-                "get_line_width": 0,
-                "opacity": etd_opacity,
+                "get_line_color": [0, 0, 0],
+                "get_line_width": 2,
+                "opacity": home_range_opacity,
             },
             legend={
-                "title": "Time Spent",
+                "title": home_range_legend_title,
                 "label_column": "Percentile",
                 "label_suffix": " %",
                 "color_column": "percentile_color",
                 "sort": "ascending",
             },
             tooltip_columns=["Percentile", "Area"],
-            zoom=True,
+            zoom=False,
             data_url=None,
             **(params.get("etd_pct_layer") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=etd_pct_display)
+    )
+
+    home_range_combined_layers = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("home_range_combined_layers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[etd_pct_layer, home_range_points_layer],
+            **(params.get("home_range_combined_layers") or {}),
+        )
+        .call()
+    )
+
+    home_range_view_state = (
+        task(compute_fitted_view_state)
+        .validate()
+        .set_task_instance_id("home_range_view_state")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(max_zoom=15, **(params.get("home_range_view_state") or {}))
+        .mapvalues(argnames=["geo_layers"], argvalues=home_range_combined_layers)
+    )
+
+    home_range_map_and_view = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("home_range_map_and_view")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            iterables=[home_range_combined_layers, home_range_view_state],
+            **(params.get("home_range_map_and_view") or {}),
+        )
+        .call()
     )
 
     etd_map = (
@@ -756,12 +1052,13 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             static=False,
             title=None,
             output_type="html",
-            view_state=None,
             max_zoom=15,
             legend_style={"placement": "bottom-right"},
             **(params.get("etd_map") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=etd_pct_layer)
+        .mapvalues(
+            argnames=["geo_layers", "view_state"], argvalues=home_range_map_and_view
+        )
     )
 
     persist_etd_map_html = (
@@ -798,9 +1095,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(
-            title="ETD Home Range Map", **(params.get("etd_map_widget_views") or {})
-        )
+        .partial(title="Home Range Map", **(params.get("etd_map_widget_views") or {}))
         .map(argnames=["view", "data"], argvalues=persist_etd_map_html)
     )
 
@@ -905,8 +1200,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            title="ETD Percentile Table",
-            **(params.get("etd_pct_table_widget_views") or {}),
+            title="Percentile Table", **(params.get("etd_pct_table_widget_views") or {})
         )
         .map(argnames=["view", "data"], argvalues=persist_etd_pct_table_html)
     )
