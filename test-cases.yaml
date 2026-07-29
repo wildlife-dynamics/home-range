@@ -16,6 +16,17 @@ base:
     groupers:
       groupers:
         - index_name: subject_name
+    home_range_rings_correction:
+      var: false
+    home_range_legend_title:
+      var: "Home Range %"
+    home_range_args:
+      args:
+        opacity: 0.7
+        crs: "EPSG:3857"
+        max_speed_factor: 1.05
+        expansion_factor: 1.3
+        percentiles: ["50", "60", "70", "80", "90", "99.999"]
 
 no-groupers:
   name: No Groupers (single pooled group)
@@ -34,6 +45,17 @@ no-groupers:
       subject_group_name: "Elephants"
     groupers:
       groupers: []
+    home_range_rings_correction:
+      var: false
+    home_range_legend_title:
+      var: "Home Range %"
+    home_range_args:
+      args:
+        opacity: 0.7
+        crs: "EPSG:3857"
+        max_speed_factor: 1.05
+        expansion_factor: 1.3
+        percentiles: ["50", "60", "70", "80", "90", "99.999"]
 
 temporal-grouper:
   name: Temporal Grouper by Month
@@ -53,6 +75,17 @@ temporal-grouper:
     groupers:
       groupers:
         - temporal_index: "%Y-%m"
+    home_range_rings_correction:
+      var: false
+    home_range_legend_title:
+      var: "Home Range %"
+    home_range_args:
+      args:
+        opacity: 0.7
+        crs: "EPSG:3857"
+        max_speed_factor: 1.05
+        expansion_factor: 1.3
+        percentiles: ["50", "60", "70", "80", "90", "99.999"]
 
 spatial-grouper:
   name: Spatial Grouper by Feature Group
@@ -72,6 +105,17 @@ spatial-grouper:
     groupers:
       groupers:
         - spatial_index_name: "SpatialGrouperTest"
+    home_range_rings_correction:
+      var: false
+    home_range_legend_title:
+      var: "Home Range %"
+    home_range_args:
+      args:
+        opacity: 0.7
+        crs: "EPSG:3857"
+        max_speed_factor: 1.05
+        expansion_factor: 1.3
+        percentiles: ["50", "60", "70", "80", "90", "99.999"]
 
 with-bounding-box:
   name: Filter Data with Bounding Box
@@ -98,3 +142,14 @@ with-bounding-box:
     groupers:
       groupers:
         - index_name: subject_name
+    home_range_rings_correction:
+      var: false
+    home_range_legend_title:
+      var: "Home Range %"
+    home_range_args:
+      args:
+        opacity: 0.7
+        crs: "EPSG:3857"
+        max_speed_factor: 1.05
+        expansion_factor: 1.3
+        percentiles: ["50", "60", "70", "80", "90", "99.999"]
