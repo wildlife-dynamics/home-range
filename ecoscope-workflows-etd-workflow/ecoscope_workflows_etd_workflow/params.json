@@ -75,6 +75,13 @@
           "title": "Subject Group Name",
           "type": "string",
           "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results"
+        },
+        "include_subject_additional": {
+          "default": false,
+          "title": "Include Subject Additional",
+          "type": "boolean",
+          "description": "Whether or not to include the subject's free-form `additional` JSON",
+          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -385,9 +392,8 @@
             }
           ],
           "default": {
-            "mcp_opacity": 0.7,
-            "mcp_crs": "ESRI:102022",
-            "mcp_percentiles": [
+            "crs": "EPSG:3857",
+            "percentiles": [
               "50",
               "60",
               "70",
@@ -404,20 +410,6 @@
       "required": [],
       "title": ""
     },
-    "home_range_rings_correction": {
-      "additionalProperties": false,
-      "properties": {
-        "var": {
-          "title": "",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "var"
-      ],
-      "type": "object",
-      "title": ""
-    },
     "home_range_legend_title": {
       "additionalProperties": false,
       "properties": {
@@ -430,9 +422,26 @@
         "var"
       ],
       "type": "object",
-      "title": "Legend Title"
+      "title": ""
     },
-    "persist_etd_pct_grouped": {
+    "home_range_opacity": {
+      "additionalProperties": false,
+      "properties": {
+        "opacity": {
+          "default": 1,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Layer Opacity",
+          "type": "number",
+          "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "persist_home_range_pct_grouped": {
       "additionalProperties": false,
       "properties": {
         "filetypes": {
@@ -688,53 +697,106 @@
       "title": "Auto-scale",
       "type": "object"
     },
-    "BbmmMethodArgs": {
+    "BbmmExpansionFactorSettings": {
       "properties": {
-        "bbmm_opacity": {
-          "default": 1,
-          "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+        "expansion_factor": {
+          "default": 1.3,
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Layer Opacity",
+          "title": "Shape Buffer Expansion Factor",
           "type": "number"
-        },
-        "bbmm_crs": {
-          "default": "EPSG:3857",
-          "description": "The coordinate reference system in which to perform the calculation, must be a valid CRS authority code, for example ESRI:53042",
-          "ecoscope:advanced": true,
-          "title": "Coordinate Reference System",
-          "type": "string"
-        },
+        }
+      },
+      "title": "BbmmExpansionFactorSettings",
+      "type": "object"
+    },
+    "BbmmLocationErrorSettings": {
+      "properties": {
         "location_error": {
           "default": 20.0,
           "description": "Typical GPS collar accuracy - the standard deviation of a single fix's positional error.",
           "ecoscope:advanced": true,
           "title": "GPS Location Error (meters)",
           "type": "number"
-        },
-        "time_step_seconds": {
-          "default": 60.0,
-          "description": "How finely each movement segment is broken into steps when computing the density surface - smaller values are more precise but slower to compute.",
-          "ecoscope:advanced": true,
-          "title": "Bridge Integration Time Step (seconds)",
-          "type": "number"
-        },
-        "bbmm_expansion_factor": {
-          "default": 1.3,
-          "description": "Pads the calculation grid beyond the trajectory's own bounding box, so the density surface has room to taper off naturally instead of being cut off at the edge.",
-          "ecoscope:advanced": true,
-          "title": "Shape Buffer Expansion Factor",
-          "type": "number"
-        },
+        }
+      },
+      "title": "BbmmLocationErrorSettings",
+      "type": "object"
+    },
+    "BbmmMaxDataGapSettings": {
+      "properties": {
         "max_data_gap_seconds": {
           "default": 14400.0,
           "description": "Fixes separated by a gap this long or longer are excluded rather than modeled as one highly uncertain bridge - a long gap usually reflects a data outage (e.g. a collar dropout), not real movement uncertainty.",
           "ecoscope:advanced": true,
           "title": "Maximum Data Gap (seconds)",
           "type": "number"
+        }
+      },
+      "title": "BbmmMaxDataGapSettings",
+      "type": "object"
+    },
+    "BbmmMethodArgs": {
+      "description": "Brownian Bridge Movement Model. `crs`/`percentiles` are property names\nshared with `EtdMethodArgs`/`McpMethodArgs`, and `expansion_factor_settings`\nis additionally shared (name and shape) with `EtdMethodArgs` specifically\n(see module docstring). `location_error_settings` is this variant's own\ngenuinely-required disambiguator.",
+      "properties": {
+        "crs": {
+          "default": "EPSG:3857",
+          "description": "The coordinate reference system in which to perform the calculation, must be a valid CRS authority code, for example ESRI:53042",
+          "ecoscope:advanced": true,
+          "title": "Coordinate Reference System",
+          "type": "string"
         },
-        "bbmm_percentiles": {
+        "location_error_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/BbmmLocationErrorSettings"
+            }
+          ],
+          "default": {
+            "location_error": 20.0
+          },
+          "ecoscope:advanced": true,
+          "title": "GPS Location Error (meters)"
+        },
+        "time_step_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/BbmmTimeStepSettings"
+            }
+          ],
+          "default": {
+            "time_step_seconds": 60.0
+          },
+          "description": "How finely each movement segment is broken into steps when computing the density surface - smaller values are more precise but slower to compute.",
+          "ecoscope:advanced": true,
+          "title": "Bridge Integration Time Step (seconds)"
+        },
+        "expansion_factor_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/BbmmExpansionFactorSettings"
+            }
+          ],
+          "default": {
+            "expansion_factor": 1.3
+          },
+          "ecoscope:advanced": true,
+          "title": "Shape Buffer Expansion Factor"
+        },
+        "max_data_gap_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/BbmmMaxDataGapSettings"
+            }
+          ],
+          "default": {
+            "max_data_gap_seconds": 14400.0
+          },
+          "description": "Fixes separated by a gap this long or longer are excluded rather than modeled as one highly uncertain bridge - a long gap usually reflects a data outage (e.g. a collar dropout), not real movement uncertainty.",
+          "ecoscope:advanced": true,
+          "title": "Maximum Data Gap (seconds)"
+        },
+        "percentiles": {
           "default": [
             "50",
             "60",
@@ -744,6 +806,7 @@
             "95",
             "99.999"
           ],
+          "description": "Choose the percentile levels to display.",
           "ecoscope:advanced": true,
           "items": {
             "enum": [
@@ -766,9 +829,22 @@
         }
       },
       "required": [
-        "location_error"
+        "location_error_settings"
       ],
       "title": "Brownian Bridge Movement Model (BBMM)",
+      "type": "object"
+    },
+    "BbmmTimeStepSettings": {
+      "properties": {
+        "time_step_seconds": {
+          "default": 60.0,
+          "description": "How finely each movement segment is broken into steps when computing the density surface - smaller values are more precise but slower to compute.",
+          "ecoscope:advanced": true,
+          "title": "Bridge Integration Time Step (seconds)",
+          "type": "number"
+        }
+      },
+      "title": "BbmmTimeStepSettings",
       "type": "object"
     },
     "CustomGridCellSize": {
@@ -797,18 +873,21 @@
       "title": "Customize",
       "type": "object"
     },
-    "EtdMethodArgs": {
-      "description": "Field names are prefixed (etd_opacity, not opacity) so that NO property name is\nshared with McpMethodArgs/BbmmMethodArgs - required because RJSF's own anyOf-branch-\nmatching (getMatchingOption, in @rjsf/utils) deletes each schema's `required` array\nbefore checking it, falling back to \"does the data have at least one of this\noption's own property names\" - so shared field names across variants make multiple\noptions match simultaneously regardless of what's required. max_speed_factor is\nstill made genuinely required (no real pydantic default, only a schema-level one\nvia json_schema_extra) as the backend/pydantic-side disambiguation signal (e.g. for\na CLI/param.yaml submission with no home_range_args override at all). The working\nprecedent this pattern is borrowed from - ecoscope_workflows_ext_custom's\nFeatureSetQuery | FeatureTypeQuery | FeatureIdQuery (_spatial_features.py) - avoids\ncross-variant ambiguity the same way: every variant's own field names are entirely\nunique across all three.",
+    "EtdExpansionFactorSettings": {
       "properties": {
-        "etd_opacity": {
-          "default": 1,
-          "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+        "expansion_factor": {
+          "default": 1.3,
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Layer Opacity",
+          "title": "Shape Buffer Expansion Factor",
           "type": "number"
-        },
+        }
+      },
+      "title": "EtdExpansionFactorSettings",
+      "type": "object"
+    },
+    "EtdGridCellSizeSettings": {
+      "properties": {
         "auto_scale_or_custom_cell_size": {
           "anyOf": [
             {
@@ -823,29 +902,60 @@
           },
           "ecoscope:advanced": true,
           "title": "Grid Cell Size"
+        }
+      },
+      "title": "EtdGridCellSizeSettings",
+      "type": "object"
+    },
+    "EtdMethodArgs": {
+      "description": "Elliptical Time-Density. `crs`/`percentiles` are property names shared\nwith `McpMethodArgs`/`BbmmMethodArgs` where the same concept applies (see\nmodule docstring). `speed_settings` is this variant's own genuinely-\nrequired disambiguator.\n\nOpacity is intentionally not a field here - it's a map-style concern\n(`home_range_opacity`/`set_layer_opacity` in spec.yaml), not an algorithm\nsetting, so it isn't duplicated per method.",
+      "properties": {
+        "grid_cell_size_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EtdGridCellSizeSettings"
+            }
+          ],
+          "default": {
+            "auto_scale_or_custom_cell_size": {
+              "auto_scale_or_custom": "Auto-scale"
+            }
+          },
+          "ecoscope:advanced": true,
+          "title": "Grid Cell Size"
         },
-        "etd_crs": {
+        "crs": {
           "default": "EPSG:3857",
           "description": "The coordinate reference system in which to perform the calculation, must be a valid CRS authority code, for example ESRI:53042",
           "ecoscope:advanced": true,
           "title": "Coordinate Reference System",
           "type": "string"
         },
-        "max_speed_factor": {
-          "default": 1.05,
-          "description": "Caps the subject's assumed top speed as a multiple of the fastest speed actually observed in the data - higher values allow more distant possible locations between consecutive fixes.",
+        "speed_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EtdSpeedSettings"
+            }
+          ],
+          "default": {
+            "max_speed_factor": 1.05
+          },
           "ecoscope:advanced": true,
-          "title": "Max Speed Factor (Kilometers per Hour)",
-          "type": "number"
+          "title": "Max Speed Factor (Kilometers per Hour)"
         },
-        "etd_expansion_factor": {
-          "default": 1.3,
-          "description": "Pads the calculation grid beyond the trajectory's own bounding box, so the density surface has room to taper off naturally instead of being cut off at the edge.",
+        "expansion_factor_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EtdExpansionFactorSettings"
+            }
+          ],
+          "default": {
+            "expansion_factor": 1.3
+          },
           "ecoscope:advanced": true,
-          "title": "Shape Buffer Expansion Factor",
-          "type": "number"
+          "title": "Shape Buffer Expansion Factor"
         },
-        "etd_percentiles": {
+        "percentiles": {
           "default": [
             "50",
             "60",
@@ -876,31 +986,35 @@
         }
       },
       "required": [
-        "max_speed_factor"
+        "speed_settings"
       ],
       "title": "Elliptical Time-Density (ETD)",
       "type": "object"
     },
-    "McpMethodArgs": {
-      "description": "See EtdMethodArgs' own docstring - fields are prefixed to keep every property\nname unique across all three Method variants, which is what RJSF's own anyOf-\nmatching heuristic actually needs (not just a genuinely-required field).",
+    "EtdSpeedSettings": {
       "properties": {
-        "mcp_opacity": {
-          "default": 1,
-          "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+        "max_speed_factor": {
+          "default": 1.05,
+          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
           "ecoscope:advanced": true,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Layer Opacity",
+          "title": "Max Speed Factor (Kilometers per Hour)",
           "type": "number"
-        },
-        "mcp_crs": {
-          "default": "ESRI:102022",
-          "description": "The projected coordinate reference system used to rank fixes by distance from the centroid and compute hull areas - must be a valid CRS code, e.g. ESRI:102022.",
+        }
+      },
+      "title": "EtdSpeedSettings",
+      "type": "object"
+    },
+    "McpMethodArgs": {
+      "description": "Minimum Convex Polygon. `crs`/`percentiles` are property names shared\nwith `EtdMethodArgs`/`BbmmMethodArgs` (see module docstring). Has no\nfield of its own that's genuinely required, so it's the implicit\nfallback variant.",
+      "properties": {
+        "crs": {
+          "default": "EPSG:3857",
+          "description": "The projected coordinate reference system used to rank fixes by distance from the centroid and compute hull areas - must be a valid CRS code, e.g. EPSG:3857.",
           "ecoscope:advanced": true,
           "title": "Coordinate Reference System",
           "type": "string"
         },
-        "mcp_percentiles": {
+        "percentiles": {
           "default": [
             "50",
             "60",
@@ -910,6 +1024,7 @@
             "95",
             "99.999"
           ],
+          "description": "Choose the percentile levels to display.",
           "ecoscope:advanced": true,
           "items": {
             "enum": [
@@ -929,9 +1044,32 @@
           "title": "Percentile Levels",
           "type": "array",
           "uniqueItems": true
+        },
+        "show_relocations_settings": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/McpShowRelocationsSettings"
+            }
+          ],
+          "default": {
+            "show_relocations": false
+          },
+          "ecoscope:advanced": true,
+          "title": "Show Relocations"
         }
       },
       "title": "MCP (Minimum Convex Polygon)",
+      "type": "object"
+    },
+    "McpShowRelocationsSettings": {
+      "properties": {
+        "show_relocations": {
+          "default": false,
+          "title": "Show Relocations",
+          "type": "boolean"
+        }
+      },
+      "title": "McpShowRelocationsSettings",
       "type": "object"
     }
   },
@@ -947,6 +1085,12 @@
         "since",
         "until",
         "timezone"
+      ]
+    },
+    "subject_observations": {
+      "ui:order": [
+        "subject_group_name",
+        "include_subject_additional"
       ]
     },
     "subject_filters": {
@@ -965,9 +1109,9 @@
       "groupers",
       "base_map_defs",
       "home_range_args",
-      "home_range_rings_correction",
       "home_range_legend_title",
-      "persist_etd_pct_grouped"
+      "home_range_opacity",
+      "persist_home_range_pct_grouped"
     ]
   },
   "additionalProperties": false
