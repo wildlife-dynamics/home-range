@@ -32,32 +32,28 @@ rjsf-overrides:
       - $ref: "#/$defs/TemporalGrouper"
       - $ref: "#/$defs/ValueGrouper"
     Filter Data.properties.subject_filters.title: ""
-    Map Style.properties.home_range_opacity.properties.opacity.default: 0.7
     Map Style.properties.home_range_legend_title.properties.var.title: Legend Title
     Map Style.properties.home_range_legend_title.properties.var.description: >-
       The title shown above the percentile color legend on the map.
     Map Style.properties.home_range_legend_title.properties.var.default: Range Percentile
-    Map Style.properties.home_range_legend_title.properties.var.ecoscope:advanced: true
-    # Merge all 3 of Map Style's tasks into one shared "Advanced Configurations"
-    # accordion instead of one per task. CustomObjectFieldTemplate.tsx's
-    # isTaskGroup branch unconditionally builds one accordion per task inside
-    # a task-group - there's no way around that while ecoscope:task_group is
-    # true. Turning it off routes rendering through the same component's
-    # non-task-group (else) branch instead, which merges ALL of a section's
-    # own top-level entries (here, the 3 tasks themselves) into one shared
-    # accordion based on their own ecoscope:advanced flag - exactly the
-    # behavior we want, just applied one level higher than usual (task-level
-    # instead of field-level). Confirmed safe: wt_contracts.formdata's
-    # params_to_formdata/formdata_to_params (which convert between the flat
-    # task_id-keyed params the DAG consumes and this grouped rjsf shape)
-    # infer group membership purely from schema structure (any top-level key
-    # with its own nested "properties" dict) - they never read
-    # ecoscope:task_group, so flipping it here has zero effect on data
-    # routing/validation, only on how this card renders.
-    Map Style.ecoscope:task_group: false
-    Map Style.properties.base_map_defs.ecoscope:advanced: true
-    Map Style.properties.home_range_legend_title.ecoscope:advanced: true
-    Map Style.properties.home_range_opacity.ecoscope:advanced: true
+    # REVERTED (see git history for the "merge into one shared Advanced
+    # Configurations accordion" attempt): overriding ecoscope:task_group to
+    # false on Map Style did merge its per-task accordions on-screen, and
+    # wt_contracts.formdata's own params_to_formdata/formdata_to_params infer
+    # grouping structurally rather than from that flag, so backend parsing is
+    # unaffected - but ecoscope-web's OWN Desktop-app submission path
+    # (flattenFormDataForSerializationOnDesktop, in
+    # ConfigureWorkflowForm.client.utils.tsx) ALSO keys off ecoscope:task_group
+    # to decide whether to flatten a section before submitting the config, and
+    # does NOT use wt_contracts.formdata at all. With the flag false, Desktop
+    # submitted "Map Style" as a literal nested key instead of flattening its
+    # 3 tasks out, which the flat params schema's additionalProperties: false
+    # then rejected outright ("'Map Style' was unexpected"). Confirmed by
+    # reproducing the exact error. Don't flip this flag again without also
+    # checking ecoscope-web's client-side (de)serialization helpers, not just
+    # the backend's - a proper fix for the merged-accordion look needs a
+    # dedicated frontend flag (e.g. ecoscope:merge_advanced) that only the
+    # renderer checks, leaving ecoscope:task_group itself untouched.
     persist_home_range_pct_grouped.description: >-
       File formats to export the home range percentile-area data in.
     persist_home_range_pct_grouped.properties.filetypes.ecoscope:advanced: true
@@ -585,14 +581,16 @@ workflow:
     type: task-group
     description: ""
     tasks:
-      - id: base_map_defs
-        task: set_base_maps
+      - id: home_range_opacity
+        task: set_layer_opacity
+        partial:
+          opacity: 0.7
 
       - id: home_range_legend_title
         task: set_string_var
 
-      - id: home_range_opacity
-        task: set_layer_opacity
+      - id: base_map_defs
+        task: set_base_maps
 
   - name: Get Stroked Setting
     id: home_range_stroked
@@ -759,6 +757,7 @@ workflow:
             percentile: Percentile
             area_sqkm: "Area (km²)"
           raise_if_not_found: true
+          duplicate_strategy: suffix
         mapvalues:
           argnames: df
           argvalues: ${{ workflow.home_range_pct_wgs84.return }}

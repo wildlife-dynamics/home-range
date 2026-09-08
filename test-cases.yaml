@@ -17,8 +17,6 @@ base:
     groupers:
       groupers:
         - index_name: subject_name
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Home Range %"
     home_range_args:
@@ -48,8 +46,6 @@ no-groupers:
       subject_group_name: "Elephants"
     groupers:
       groupers: []
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Home Range %"
     home_range_args:
@@ -80,8 +76,6 @@ temporal-grouper:
     groupers:
       groupers:
         - temporal_index: "%Y-%m"
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Home Range %"
     home_range_args:
@@ -112,8 +106,6 @@ spatial-grouper:
     groupers:
       groupers:
         - spatial_index_name: "SpatialGrouperTest"
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Home Range %"
     home_range_args:
@@ -151,8 +143,6 @@ with-bounding-box:
     groupers:
       groupers:
         - index_name: subject_name
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Home Range %"
     home_range_args:
@@ -183,8 +173,6 @@ mcp-method:
     groupers:
       groupers:
         - index_name: subject_name
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Range Percentile"
     home_range_args:
@@ -213,8 +201,6 @@ bbmm-method:
     groupers:
       groupers:
         - index_name: subject_name
-    home_range_opacity:
-      opacity: 0.7
     home_range_legend_title:
       var: "Range Percentile"
     home_range_args:

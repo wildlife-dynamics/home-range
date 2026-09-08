@@ -288,8 +288,24 @@
     "Map Style": {
       "type": "object",
       "description": "",
-      "ecoscope:task_group": false,
+      "ecoscope:task_group": true,
       "properties": {
+        "home_range_legend_title": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Legend Title",
+              "type": "string",
+              "description": "The title shown above the percentile color legend on the map.",
+              "default": "Range Percentile"
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        },
         "base_map_defs": {
           "additionalProperties": false,
           "properties": {
@@ -481,44 +497,7 @@
           },
           "type": "object",
           "required": [],
-          "title": "",
-          "ecoscope:advanced": true
-        },
-        "home_range_legend_title": {
-          "additionalProperties": false,
-          "properties": {
-            "var": {
-              "title": "Legend Title",
-              "type": "string",
-              "description": "The title shown above the percentile color legend on the map.",
-              "default": "Range Percentile",
-              "ecoscope:advanced": true
-            }
-          },
-          "required": [
-            "var"
-          ],
-          "type": "object",
-          "title": "",
-          "ecoscope:advanced": true
-        },
-        "home_range_opacity": {
-          "additionalProperties": false,
-          "properties": {
-            "opacity": {
-              "default": 0.7,
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "title": "Layer Opacity",
-              "type": "number",
-              "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-              "ecoscope:advanced": true
-            }
-          },
-          "type": "object",
-          "required": [],
-          "title": "",
-          "ecoscope:advanced": true
+          "title": ""
         }
       }
     },
@@ -548,34 +527,6 @@
       "type": "object",
       "title": "Export Percentiles",
       "description": "File formats to export the home range percentile-area data in."
-    },
-    "Home Range Map": {
-      "type": "object",
-      "description": "Percentile choropleth map of the home range, colored by isopleth level.",
-      "ecoscope:task_group": true,
-      "properties": {
-        "home_range_pct_display": {
-          "additionalProperties": false,
-          "properties": {
-            "duplicate_strategy": {
-              "default": "suffix",
-              "enum": [
-                "suffix",
-                "skip",
-                "overwrite",
-                "error"
-              ],
-              "title": "Duplicate Strategy",
-              "type": "string",
-              "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
-              "ecoscope:advanced": true
-            }
-          },
-          "required": [],
-          "type": "object",
-          "title": "Rename Percentile/Area for Display"
-        }
-      }
     }
   },
   "$defs": {
@@ -1315,9 +1266,8 @@
     },
     "Map Style": {
       "ui:order": [
-        "base_map_defs",
         "home_range_legend_title",
-        "home_range_opacity"
+        "base_map_defs"
       ],
       "base_map_defs": {
         "base_maps": {
@@ -1339,8 +1289,7 @@
       "subject_traj_named",
       "Home Range Method",
       "Map Style",
-      "persist_home_range_pct_grouped",
-      "Home Range Map"
+      "persist_home_range_pct_grouped"
     ],
     "Group Data": {
       "groupers": {

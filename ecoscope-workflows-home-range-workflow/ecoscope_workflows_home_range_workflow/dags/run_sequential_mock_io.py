@@ -654,10 +654,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
     )
 
-    base_map_defs = (
-        task(set_base_maps)
+    home_range_opacity = (
+        task(set_layer_opacity)
         .validate()
-        .set_task_instance_id("base_map_defs")
+        .set_task_instance_id("home_range_opacity")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -667,7 +667,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(**(params.get("base_map_defs") or {}))
+        .partial(opacity=0.7, **(params.get("home_range_opacity") or {}))
         .call()
     )
 
@@ -688,10 +688,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    home_range_opacity = (
-        task(set_layer_opacity)
+    base_map_defs = (
+        task(set_base_maps)
         .validate()
-        .set_task_instance_id("home_range_opacity")
+        .set_task_instance_id("base_map_defs")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -701,7 +701,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(**(params.get("home_range_opacity") or {}))
+        .partial(**(params.get("base_map_defs") or {}))
         .call()
     )
 
@@ -930,6 +930,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             retain_columns=[],
             rename_columns={"percentile": "Percentile", "area_sqkm": "Area (km²)"},
             raise_if_not_found=True,
+            duplicate_strategy="suffix",
             **(params.get("home_range_pct_display") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=home_range_pct_wgs84)

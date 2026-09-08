@@ -238,6 +238,20 @@
       "required": [],
       "title": ""
     },
+    "home_range_legend_title": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
     "base_map_defs": {
       "additionalProperties": false,
       "properties": {
@@ -431,37 +445,6 @@
       "required": [],
       "title": ""
     },
-    "home_range_legend_title": {
-      "additionalProperties": false,
-      "properties": {
-        "var": {
-          "title": "",
-          "type": "string"
-        }
-      },
-      "required": [
-        "var"
-      ],
-      "type": "object",
-      "title": ""
-    },
-    "home_range_opacity": {
-      "additionalProperties": false,
-      "properties": {
-        "opacity": {
-          "default": 1,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Layer Opacity",
-          "type": "number",
-          "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-          "ecoscope:advanced": true
-        }
-      },
-      "type": "object",
-      "required": [],
-      "title": ""
-    },
     "persist_home_range_pct_grouped": {
       "additionalProperties": false,
       "properties": {
@@ -487,27 +470,6 @@
       "required": [],
       "type": "object",
       "title": "Export Percentiles"
-    },
-    "home_range_pct_display": {
-      "additionalProperties": false,
-      "properties": {
-        "duplicate_strategy": {
-          "default": "suffix",
-          "enum": [
-            "suffix",
-            "skip",
-            "overwrite",
-            "error"
-          ],
-          "title": "Duplicate Strategy",
-          "type": "string",
-          "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Rename Percentile/Area for Display"
     }
   },
   "$defs": {
@@ -1151,11 +1113,9 @@
       "groupers",
       "subject_traj_named",
       "home_range_args",
-      "base_map_defs",
       "home_range_legend_title",
-      "home_range_opacity",
-      "persist_home_range_pct_grouped",
-      "home_range_pct_display"
+      "base_map_defs",
+      "persist_home_range_pct_grouped"
     ]
   },
   "additionalProperties": false

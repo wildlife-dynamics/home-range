@@ -1,5 +1,5 @@
 workflow_details:
-  name: "Elephants ETD Home Range"
+  name: "Elephants BBMM Home Range"
   description: ""
 er_client:
   data_source:
@@ -13,12 +13,10 @@ groupers:
   groupers:
     - index_name: subject_name
 home_range_legend_title:
-  var: "Home Range %"
+  var: "Range Percentile"
 home_range_args:
   args:
     crs: "EPSG:3857"
-    speed_settings:
-      max_speed_factor: 1.05
-    expansion_factor_settings:
-      expansion_factor: 1.3
-    percentiles: ["50", "60", "70", "80", "90", "99.999"]
+    location_error_settings:
+      location_error: 20.0
+    percentiles: ["50", "90"]
