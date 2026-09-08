@@ -1,0 +1,55 @@
+{
+  "error": null,
+  "result": {
+    "filters": {
+      "schema": {
+        "properties": {
+          "TemporalGrouper_%Y-%m": {
+            "default": "2017-01",
+            "oneOf": [
+              {
+                "const": "2017-01",
+                "title": "2017-01"
+              }
+            ],
+            "title": "Year-Month",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "uiSchema": {
+          "TemporalGrouper_%Y-%m": {
+            "ui:title": "Year-Month",
+            "ui:widget": "select"
+          }
+        }
+      }
+    },
+    "layout": [],
+    "metadata": {
+      "description": "ETD home range grouped by month.",
+      "time_range": "From 01 Jan 2000 to 01 Jan 2020",
+      "time_zone": "UTC",
+      "title": "Elephants ETD Home Range"
+    },
+    "views": {
+      "{\"TemporalGrouper_%Y-%m\": \"2017-01\"}": [
+        {
+          "data": "tmpfile",
+          "id": 0,
+          "is_filtered": true,
+          "title": "Home Range Map",
+          "widget_type": "map"
+        },
+        {
+          "data": "tmpfile",
+          "id": 1,
+          "is_filtered": true,
+          "title": "Percentile Table",
+          "widget_type": "graph"
+        }
+      ]
+    }
+  },
+  "trace": null
+}

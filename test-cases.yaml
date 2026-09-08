@@ -166,7 +166,7 @@ with-bounding-box:
 
 mcp-method:
   name: MCP (Minimum Convex Polygon) Method
-  description: Exercises the new MCP home-range method end-to-end, including rings correction.
+  description: Exercises the new MCP home-range method end-to-end, including the relocation points overlay.
   mock_io: true
   params:
     workflow_details:
@@ -191,8 +191,8 @@ mcp-method:
       args:
         crs: "EPSG:3857"
         percentiles: ["50", "90"]
-        rings_correction_settings:
-          mcp_rings_correction: true
+        show_relocations_settings:
+          show_relocations: true
 
 bbmm-method:
   name: BBMM (Brownian Bridge Movement Model) Method

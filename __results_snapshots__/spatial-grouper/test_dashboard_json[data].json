@@ -1,0 +1,75 @@
+{
+  "error": null,
+  "result": {
+    "filters": {
+      "schema": {
+        "properties": {
+          "SpatialGrouper_SpatialGrouperTest": {
+            "default": "Central",
+            "oneOf": [
+              {
+                "const": "Central",
+                "title": "Central"
+              },
+              {
+                "const": "West",
+                "title": "West"
+              }
+            ],
+            "title": "SpatialGrouperTest",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "uiSchema": {
+          "SpatialGrouper_SpatialGrouperTest": {
+            "ui:title": "SpatialGrouperTest",
+            "ui:widget": "select"
+          }
+        }
+      }
+    },
+    "layout": [],
+    "metadata": {
+      "description": "ETD home range grouped by spatial feature group.",
+      "time_range": "From 01 Jan 2000 to 01 Jan 2020",
+      "time_zone": "UTC",
+      "title": "Elephants ETD Home Range"
+    },
+    "views": {
+      "{\"SpatialGrouper_SpatialGrouperTest\": \"Central\"}": [
+        {
+          "data": "tmpfile",
+          "id": 0,
+          "is_filtered": true,
+          "title": "Home Range Map",
+          "widget_type": "map"
+        },
+        {
+          "data": "tmpfile",
+          "id": 1,
+          "is_filtered": true,
+          "title": "Percentile Table",
+          "widget_type": "graph"
+        }
+      ],
+      "{\"SpatialGrouper_SpatialGrouperTest\": \"West\"}": [
+        {
+          "data": "tmpfile",
+          "id": 0,
+          "is_filtered": true,
+          "title": "Home Range Map",
+          "widget_type": "map"
+        },
+        {
+          "data": "tmpfile",
+          "id": 1,
+          "is_filtered": true,
+          "title": "Percentile Table",
+          "widget_type": "graph"
+        }
+      ]
+    }
+  },
+  "trace": null
+}
