@@ -521,23 +521,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    base_map_defs = (
-        task(set_base_maps)
-        .validate()
-        .set_task_instance_id("base_map_defs")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("base_map_defs") or {}))
-        .call()
-    )
-
     home_range_args = (
         task(set_home_range_args)
         .validate()
@@ -669,6 +652,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             args=home_range_args, **(params.get("home_range_percentiles_grouped") or {})
         )
         .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
+    )
+
+    base_map_defs = (
+        task(set_base_maps)
+        .validate()
+        .set_task_instance_id("base_map_defs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("base_map_defs") or {}))
+        .call()
     )
 
     home_range_legend_title = (

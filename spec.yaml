@@ -1,47 +1,13 @@
-id: etd
+id: home_range
 
 requirements:
-  # DEV ONLY: ecoscope-platform stays a normal published conda dependency
-  # here even though we're testing unpublished code (ecoscope@zak/mcp-bbmm) -
-  # the unpublished branch is shadowed in via PYTHONPATH at compile/run time
-  # instead of listed here as an editable-local requirement. wt-compiler's
-  # own subprocess calls (the pypi install step and the wt-registry
-  # task-discovery scan) inherit the calling shell's environment, so a
-  # PYTHONPATH set before invoking it reaches both compile-time task
-  # discovery and later runtime execution - `import ecoscope` resolves to the
-  # local checkout in both, without the slower/more fragile full
-  # editable-path conda+pypi solve an in-place `path:`/`editable: true`
-  # requirement would need (and without a matching python-version pin -
-  # a real conda ecoscope-platform constrains that on its own).
-  #
-  # Compile and run with:
-  #   PYTHONPATH=/absolute/path/to/local/ecoscope pixi run compile-etd
-  #   PYTHONPATH=/absolute/path/to/local/ecoscope pixi run <workflow CLI/tests>
-  #
-  # Revert to a plain published pin (no PYTHONPATH needed) once a released
-  # ecoscope-platform version actually contains this code.
   - name: ecoscope-platform
-    version: ">=2.17.0,<3.0.0"
+    version: ">=2.22.0,<3.0.0"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-  # TEMPORARY: back to editable-local while testing compute_fitted_view_state
-  # (branch zak/mcp-bbmm in ecoscope-workflow-task-library) - was pinned to
-  # published 0.1.0rc21 before this. Re-pin to a new published version once a
-  # release is cut with this change.
   - name: ecoscope-workflows-ext-custom
-    path: /Users/zak/Documents/w-dynamics/ecoscope-workflow-task-library/src/ecoscope-workflows-ext-custom
-    editable: true
-
-  # TEMPORARY, tied to the ecoscope-workflows-ext-custom entry above: that
-  # package's own pyproject.toml pins setuptools<=81.0.0 for its own pypi
-  # build, but wt-compiler doesn't carry that pin into the generated
-  # workflow's pixi.toml, so the conda solver picks whatever's newest on
-  # conda-forge (83.x/84.x as of writing) and pixi install's pypi-layer solve
-  # then fails on the contradiction. Remove once ecoscope-workflows-ext-custom
-  # is back to a normal published conda pin (no pypi-layer solve at all then).
-  - name: setuptools
-    version: "<=81.0.0"
-    channel: conda-forge
+    version: "0.1.1"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
     version: 0.9.2

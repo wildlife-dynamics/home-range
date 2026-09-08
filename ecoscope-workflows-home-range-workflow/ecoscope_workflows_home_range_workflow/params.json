@@ -183,6 +183,61 @@
       "required": [],
       "title": ""
     },
+    "subject_traj_named": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_strategy": {
+          "default": "suffix",
+          "enum": [
+            "suffix",
+            "skip",
+            "overwrite",
+            "error"
+          ],
+          "title": "Duplicate Strategy",
+          "type": "string",
+          "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Rename Subject Columns for Grouping"
+    },
+    "home_range_args": {
+      "additionalProperties": false,
+      "properties": {
+        "args": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/McpMethodArgs"
+            },
+            {
+              "$ref": "#/$defs/EtdMethodArgs"
+            },
+            {
+              "$ref": "#/$defs/BbmmMethodArgs"
+            }
+          ],
+          "default": {
+            "crs": "EPSG:3857",
+            "percentiles": [
+              "50",
+              "60",
+              "70",
+              "80",
+              "90",
+              "95",
+              "99.999"
+            ]
+          },
+          "title": "Method"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
     "base_map_defs": {
       "additionalProperties": false,
       "properties": {
@@ -374,40 +429,6 @@
       },
       "type": "object",
       "required": [],
-      "title": "Map Base Layers"
-    },
-    "home_range_args": {
-      "additionalProperties": false,
-      "properties": {
-        "args": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/McpMethodArgs"
-            },
-            {
-              "$ref": "#/$defs/EtdMethodArgs"
-            },
-            {
-              "$ref": "#/$defs/BbmmMethodArgs"
-            }
-          ],
-          "default": {
-            "crs": "EPSG:3857",
-            "percentiles": [
-              "50",
-              "60",
-              "70",
-              "80",
-              "90",
-              "95",
-              "99.999"
-            ]
-          },
-          "title": "Method"
-        }
-      },
-      "type": "object",
-      "required": [],
       "title": ""
     },
     "home_range_legend_title": {
@@ -466,6 +487,27 @@
       "required": [],
       "type": "object",
       "title": "Export Percentiles"
+    },
+    "home_range_pct_display": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_strategy": {
+          "default": "suffix",
+          "enum": [
+            "suffix",
+            "skip",
+            "overwrite",
+            "error"
+          ],
+          "title": "Duplicate Strategy",
+          "type": "string",
+          "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Rename Percentile/Area for Display"
     }
   },
   "$defs": {
@@ -1107,11 +1149,13 @@
       "subject_observations",
       "subject_filters",
       "groupers",
-      "base_map_defs",
+      "subject_traj_named",
       "home_range_args",
+      "base_map_defs",
       "home_range_legend_title",
       "home_range_opacity",
-      "persist_home_range_pct_grouped"
+      "persist_home_range_pct_grouped",
+      "home_range_pct_display"
     ]
   },
   "additionalProperties": false

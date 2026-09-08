@@ -13,7 +13,7 @@
 set -e
 
 WORKFLOW_DIR="."
-GENERATED_DIR="${WORKFLOW_DIR}/ecoscope-workflows-etd-workflow"
+GENERATED_DIR="${WORKFLOW_DIR}/ecoscope-workflows-home-range-workflow"
 REGISTRY_BIN="${GENERATED_DIR}/.pixi/envs/default/bin/wt-registry"
 REGISTRY_JSON="/tmp/wt_registry_output.json"
 
@@ -86,7 +86,7 @@ if spec.rjsf_overrides:
 result = params_schema_hierarchical.model_dump(by_alias=True, exclude_none=True)
 
 from pathlib import Path
-out = Path('$GENERATED_DIR') / 'ecoscope_workflows_etd_workflow' / 'rjsf.json'
+out = Path('$GENERATED_DIR') / 'ecoscope_workflows_home_range_workflow' / 'rjsf.json'
 out.write_text(json.dumps(result, indent=2) + '\n')
 print('written:', out)
 "
