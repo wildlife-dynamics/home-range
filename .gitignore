@@ -147,3 +147,4 @@ Makefile
 Makefile.local
 .scripts/
 CLAUDE.md
+__diff_output__/
