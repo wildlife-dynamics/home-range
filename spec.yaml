@@ -71,6 +71,27 @@ rjsf-overrides:
     Map Style.properties.home_range_legend_title.properties.var.description: >-
       The title shown above the percentile color legend on the map.
     Map Style.properties.home_range_legend_title.properties.var.default: Range Percentile
+    Map Style.properties.home_range_legend_title.properties.var.ecoscope:advanced: true
+    # Merge all 3 of Map Style's tasks into one shared "Advanced Configurations"
+    # accordion instead of one per task. CustomObjectFieldTemplate.tsx's
+    # isTaskGroup branch unconditionally builds one accordion per task inside
+    # a task-group - there's no way around that while ecoscope:task_group is
+    # true. Turning it off routes rendering through the same component's
+    # non-task-group (else) branch instead, which merges ALL of a section's
+    # own top-level entries (here, the 3 tasks themselves) into one shared
+    # accordion based on their own ecoscope:advanced flag - exactly the
+    # behavior we want, just applied one level higher than usual (task-level
+    # instead of field-level). Confirmed safe: wt_contracts.formdata's
+    # params_to_formdata/formdata_to_params (which convert between the flat
+    # task_id-keyed params the DAG consumes and this grouped rjsf shape)
+    # infer group membership purely from schema structure (any top-level key
+    # with its own nested "properties" dict) - they never read
+    # ecoscope:task_group, so flipping it here has zero effect on data
+    # routing/validation, only on how this card renders.
+    Map Style.ecoscope:task_group: false
+    Map Style.properties.base_map_defs.ecoscope:advanced: true
+    Map Style.properties.home_range_legend_title.ecoscope:advanced: true
+    Map Style.properties.home_range_opacity.ecoscope:advanced: true
     persist_home_range_pct_grouped.description: >-
       File formats to export the home range percentile-area data in.
     persist_home_range_pct_grouped.properties.filetypes.ecoscope:advanced: true
@@ -208,7 +229,7 @@ rjsf-overrides:
           label: false
       - ui:options:
           label: false
-    base_map_defs.base_maps.items.ui:options.label: false
+    Map Style.base_map_defs.base_maps.items.ui:options.label: false
     # Hide the redundant fieldset legend (e.g. "Elliptical Time-Density (ETD)") that
     # repeats what the Method dropdown above it already shows selected.
     #
@@ -462,10 +483,6 @@ workflow:
       df: ${{ workflow.subject_traj_named.return }}
       groupers: ${{ workflow.resolved_groupers.return }}
 
-  - name: Map Base Layers
-    id: base_map_defs
-    task: set_base_maps
-
   # ── Home Range (ETD, MCP, or BBMM, user-selectable) ───────────────────────
   #
   # SUPERSEDED (kept for history, see below for the current design):
@@ -475,11 +492,24 @@ workflow:
   # # told apart structurally via disjoint field names (see _home_range.py).
   # # (A real `method` discriminator + allOf/if/then was tried instead, to avoid
   # # anyOf's known "switching methods wipes previously-entered values" quirk -
-  # # live-tested and found that allOf/if/then adding brand-new properties not
-  # # already in the base schema doesn't render fields at all in this app's
-  # # actual RJSF setup, so reverted back to the disjoint-property anyOf pattern,
-  # # which is proven to work - it's the same one icf/workflows/patrol_events
-  # # already uses in production.)
+  # # live-tested at the time and found that allOf/if/then adding brand-new
+  # # properties not already in the base schema doesn't render fields at all in
+  # # this app's actual RJSF setup, so reverted back to the disjoint-property
+  # # anyOf pattern, which is proven to work - it's the same one
+  # # icf/workflows/patrol_events already uses in production.
+  # #
+  # # CORRECTION (re-tested later, see ecoscope's _patrol_summary.py
+  # # make_aggregation_json_schema_extra for a shipped example): allOf/if/then
+  # # DOES render correctly and DOES retain values across branch switches (no
+  # # field-blanking at all, since there's only one schema/formData object -
+  # # nothing to reset), PROVIDED the schema has no additionalProperties/
+  # # unevaluatedProperties anywhere and no default on the conditionally-revealed
+  # # fields - our original test apparently had one of those, which is what
+  # # actually broke it, not allOf/if/then itself. Not worth migrating this
+  # # already-shipped, already-proven selector to it retroactively, but prefer
+  # # discriminator + if/then (with those constraints) over the disjoint-property
+  # # anyOf/wrapper-object pattern for any *new* multi-branch selector - it's
+  # # simpler and doesn't need the wrapper-object indirection at all.)
   #
   # A single "Method" field lets the user pick ETD, MCP, or BBMM; only the
   # selected method's own settings are present in the submitted data.
@@ -580,11 +610,18 @@ workflow:
 
   # Map-rendering settings, kept separate from Home Range Method above so
   # algorithm/statistical settings (per-method) aren't mixed in with purely
-  # cosmetic ones (shared across all three methods).
+  # cosmetic ones (shared across all three methods). base_map_defs lives here
+  # too (merged from its own former standalone card) - it's a map-rendering
+  # setting like the other two, not tied to any one home-range method, and
+  # this is purely a spec.yaml grouping change (task-group), no task-library
+  # change needed.
   - title: Map Style
     type: task-group
     description: ""
     tasks:
+      - id: base_map_defs
+        task: set_base_maps
+
       - id: home_range_legend_title
         task: set_string_var
 
