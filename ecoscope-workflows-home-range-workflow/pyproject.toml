@@ -5,16 +5,16 @@ requires = ["hatchling>=1.18.0,<2", "ruamel.yaml>=0.17.0,<1"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ecoscope-workflows-etd-workflow"
+name = "ecoscope-workflows-home-range-workflow"
 dynamic = ["version"]
 requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-ecoscope-workflows-etd-workflow = "ecoscope_workflows_etd_workflow.cli:cli"
+ecoscope-workflows-home-range-workflow = "ecoscope_workflows_home_range_workflow.cli:cli"
 
 [tool.hatch.metadata.hooks.custom]
 path = "hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ecoscope_workflows_etd_workflow"]
+packages = ["ecoscope_workflows_home_range_workflow"]

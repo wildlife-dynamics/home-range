@@ -1,26 +1,17 @@
-id: etd
+id: home_range
 
 requirements:
   - name: ecoscope-platform
-    version: ">=2.15.0,<2.18.0"
+    version: ">=2.22.0,<3.0.0"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.1.0rc21"
+    version: "0.1.1"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: pydeck
     version: 0.9.2
     channel: conda-forge
-
-  # ETD/MCP/BBMM home-range-selector work (see ecoscope_workflows_ext_wd/tasks/
-  # _home_range.py and _bbmm.py) isn't published on ecoscope-platform yet, so it
-  # lives in ecoscope-workflows-ext-wd instead - published as wd-v0.0.4. Once the
-  # real code is merged/released in ecoscope-platform, this requirement should be
-  # removed and the task references below resolve from ecoscope-platform directly.
-  - name: ecoscope-workflows-ext-wd
-    version: "0.0.4"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
   properties:
@@ -41,27 +32,44 @@ rjsf-overrides:
       - $ref: "#/$defs/TemporalGrouper"
       - $ref: "#/$defs/ValueGrouper"
     Filter Data.properties.subject_filters.title: ""
-    Home Range Method.properties.home_range_rings_correction.properties.var.title: Fix Overlapping Percentile Transparency
-    Home Range Method.properties.home_range_rings_correction.properties.var.description: >-
-      Home-range percentile polygons are cumulative and nested (the 90% area fully
-      contains the 50% area, and so on), so when rendered with transparency, the
-      overlapping regions stack and look more opaque than areas covered by only one
-      percentile band. This is most noticeable at low opacity. Enabling this
-      converts the nested polygons into non-overlapping rings first, so opacity
-      renders uniformly across the map.
-    Home Range Method.properties.home_range_rings_correction.properties.var.default: false
-    Home Range Method.properties.home_range_rings_correction.properties.var.ecoscope:advanced: true
-    home_range_legend_title.properties.var.title: Legend Title
-    home_range_legend_title.properties.var.description: >-
+    Map Style.properties.home_range_opacity.properties.opacity.default: 0.7
+    Map Style.properties.home_range_legend_title.properties.var.title: Legend Title
+    Map Style.properties.home_range_legend_title.properties.var.description: >-
       The title shown above the percentile color legend on the map.
-    home_range_legend_title.properties.var.default: Home Range %
-    home_range_legend_title.properties.var.ecoscope:advanced: true
-    persist_etd_pct_grouped.description: >-
+    Map Style.properties.home_range_legend_title.properties.var.default: Range Percentile
+    Map Style.properties.home_range_legend_title.properties.var.ecoscope:advanced: true
+    # Merge all 3 of Map Style's tasks into one shared "Advanced Configurations"
+    # accordion instead of one per task. CustomObjectFieldTemplate.tsx's
+    # isTaskGroup branch unconditionally builds one accordion per task inside
+    # a task-group - there's no way around that while ecoscope:task_group is
+    # true. Turning it off routes rendering through the same component's
+    # non-task-group (else) branch instead, which merges ALL of a section's
+    # own top-level entries (here, the 3 tasks themselves) into one shared
+    # accordion based on their own ecoscope:advanced flag - exactly the
+    # behavior we want, just applied one level higher than usual (task-level
+    # instead of field-level). Confirmed safe: wt_contracts.formdata's
+    # params_to_formdata/formdata_to_params (which convert between the flat
+    # task_id-keyed params the DAG consumes and this grouped rjsf shape)
+    # infer group membership purely from schema structure (any top-level key
+    # with its own nested "properties" dict) - they never read
+    # ecoscope:task_group, so flipping it here has zero effect on data
+    # routing/validation, only on how this card renders.
+    Map Style.ecoscope:task_group: false
+    Map Style.properties.base_map_defs.ecoscope:advanced: true
+    Map Style.properties.home_range_legend_title.ecoscope:advanced: true
+    Map Style.properties.home_range_opacity.ecoscope:advanced: true
+    persist_home_range_pct_grouped.description: >-
       File formats to export the home range percentile-area data in.
-    persist_etd_pct_grouped.properties.filetypes.ecoscope:advanced: true
-    persist_etd_pct_grouped.properties.filetypes.items.enum:
+    persist_home_range_pct_grouped.properties.filetypes.ecoscope:advanced: true
+    persist_home_range_pct_grouped.properties.filetypes.default:
+      - geoparquet
       - csv
-      - parquet
+    persist_home_range_pct_grouped.properties.filetypes.items.enum:
+      # geoparquet (not plain parquet) - this data has a geometry column
+      # (the percentile hull/isopleth polygons), which plain parquet doesn't
+      # preserve natively.
+      - csv
+      - geoparquet
   $defs:
     # Restrict grouping to subject attributes that actually exist on the trajectory
     # (after the rename step below), matching the subject-tracking workflow.
@@ -72,6 +80,113 @@ rjsf-overrides:
         title: Subject Subtype
       - const: subject_sex
         title: Subject Sex
+    # grid_cell_size_settings/speed_settings/expansion_factor_settings/
+    # location_error_settings/time_step_settings/max_data_gap_settings (see
+    # _home_range.py/_bbmm.py's module comments, ADDENDUM 2) are single-field
+    # object wrappers that exist purely to work
+    # around RJSF's field-blanking-on-switch-back bug. Pydantic emits
+    # `{"allOf": [{"$ref": ...}], "default": ..., "title": ...}` for each of
+    # these (a model-typed field with a title override or other Field(...)
+    # metadata alongside it), but RJSF's sanitizeDataForNewSchema only ever
+    # resolves a BARE `{"$ref": ...}`, never one nested inside `allOf` - so
+    # without this override, each field's own `type` is never resolved to
+    # `object`, and it falls through to the untyped-scalar (tombstone-prone)
+    # path regardless of the wrapping. Adding `type`/`properties` directly
+    # here (duplicating each wrapper model's own real schema, hand-copied
+    # from the compiled rjsf.json, not auto-derived) makes
+    # sanitizeDataForNewSchema find them directly without ever needing to
+    # follow the (still-present but now irrelevant) $ref. Tried injecting
+    # this from the Python side instead (json_schema_extra) - confirmed via
+    # direct reproduction that it's unreliable there for two separate
+    # reasons: pydantic's own schema generator raises on any raw "$ref"
+    # string placed inside json_schema_extra (blocking
+    # grid_cell_size_settings, whose inner field is itself a $ref-bearing
+    # anyOf), and separately, pydantic silently drops an injected "type" key
+    # specifically when the referencing field has no real python default
+    # (blocking speed_settings/location_error_settings, which need to stay
+    # genuinely required for backend disambiguation). Overriding here
+    # instead, on the final assembled schema, sidesteps both.
+    EtdMethodArgs.properties.grid_cell_size_settings.type: object
+    EtdMethodArgs.properties.grid_cell_size_settings.properties:
+      auto_scale_or_custom_cell_size:
+        anyOf:
+          - $ref: "#/$defs/AutoScaleGridCellSize"
+          - $ref: "#/$defs/CustomGridCellSize"
+        default:
+          auto_scale_or_custom: "Auto-scale"
+        ecoscope:advanced: true
+        title: Grid Cell Size
+    EtdMethodArgs.properties.speed_settings.type: object
+    EtdMethodArgs.properties.speed_settings.properties:
+      max_speed_factor:
+        default: 1.05
+        description: >-
+          Caps the subject's assumed top speed as a multiple of the fastest speed
+          actually observed in the data - higher values allow more distant possible
+          locations between consecutive fixes.
+        title: Max Speed Factor (Kilometers per Hour)
+        type: number
+    EtdMethodArgs.properties.expansion_factor_settings.type: object
+    EtdMethodArgs.properties.expansion_factor_settings.properties:
+      expansion_factor:
+        default: 1.3
+        description: >-
+          Pads the calculation grid beyond the trajectory's own bounding box, so the
+          density surface has room to taper off naturally instead of being cut off at
+          the edge.
+        ecoscope:advanced: true
+        title: Shape Buffer Expansion Factor
+        type: number
+    McpMethodArgs.properties.show_relocations_settings.type: object
+    McpMethodArgs.properties.show_relocations_settings.properties:
+      show_relocations:
+        default: false
+        description: >-
+          Overlay the individual relocation points on the map. Off by default - dense point
+          clouds can obscure the home range polygon underneath.
+        title: Show Relocations
+        type: boolean
+    BbmmMethodArgs.properties.location_error_settings.type: object
+    BbmmMethodArgs.properties.location_error_settings.properties:
+      location_error:
+        default: 20.0
+        description: >-
+          Typical GPS collar accuracy - the standard deviation of a single fix's
+          positional error.
+        title: GPS Location Error (meters)
+        type: number
+    BbmmMethodArgs.properties.time_step_settings.type: object
+    BbmmMethodArgs.properties.time_step_settings.properties:
+      time_step_seconds:
+        default: 60.0
+        description: >-
+          How finely each movement segment is broken into steps when computing the
+          density surface - smaller values are more precise but slower to compute.
+        ecoscope:advanced: true
+        title: Bridge Integration Time Step (seconds)
+        type: number
+    BbmmMethodArgs.properties.expansion_factor_settings.type: object
+    BbmmMethodArgs.properties.expansion_factor_settings.properties:
+      expansion_factor:
+        default: 1.3
+        description: >-
+          Pads the calculation grid beyond the trajectory's own bounding box, so the
+          density surface has room to taper off naturally instead of being cut off at
+          the edge.
+        ecoscope:advanced: true
+        title: Shape Buffer Expansion Factor
+        type: number
+    BbmmMethodArgs.properties.max_data_gap_settings.type: object
+    BbmmMethodArgs.properties.max_data_gap_settings.properties:
+      max_data_gap_seconds:
+        default: 14400.0
+        description: >-
+          Fixes separated by a gap this long or longer are excluded rather than
+          modeled as one highly uncertain bridge - a long gap usually reflects a data
+          outage (e.g. a collar dropout), not real movement uncertainty.
+        ecoscope:advanced: true
+        title: Maximum Data Gap (seconds)
+        type: number
   uiSchema:
     # Positional, matching the narrowed schema anyOf order above: TemporalGrouper,
     # ValueGrouper (SpatialGrouper removed).
@@ -80,29 +195,82 @@ rjsf-overrides:
           label: false
       - ui:options:
           label: false
-    base_map_defs.base_maps.items.ui:options.label: false
+    Map Style.base_map_defs.base_maps.items.ui:options.label: false
     # Hide the redundant fieldset legend (e.g. "Elliptical Time-Density (ETD)") that
-    # repeats what the Method dropdown above it already shows selected. Same fix
-    # nested one level deeper for Grid Cell Size (auto_scale_or_custom_cell_size,
-    # ETD-only) - its own anyOf shows the same "Auto-scale"/"Customize" redundancy.
+    # repeats what the Method dropdown above it already shows selected.
+    #
+    # Grid Cell Size (auto_scale_or_custom_cell_size, ETD-only) is different: its
+    # own "Grid Cell Size" label is NOT redundant with anything else on screen (it's
+    # the only caption naming what the Auto-scale/Customize selector below it is
+    # for), so it's deliberately left alone/visible - do not add a label:false
+    # override for it directly. What IS truly redundant, one level deeper: each
+    # matched branch (AutoScaleGridCellSize/CustomGridCellSize) has its own
+    # `auto_scale_or_custom` const property (title also "Grid Cell Size") - a
+    # fixed, non-editable discriminator value that just repeats what the
+    # Auto-scale/Customize selector already shows, so THAT one is hidden entirely
+    # (ui:widget: hidden, not just label:false - a const field carries no real
+    # choice to preserve, unlike the selector itself).
+    #
+    # speed_settings/show_relocations_settings/location_error_settings/
+    # time_step_settings/max_data_gap_settings/grid_cell_size_settings/
+    # expansion_factor_settings (see _home_range.py/_bbmm.py's module
+    # comments) are single-field object wrappers that exist purely to work
+    # around RJSF's field-blanking-on-switch-back bug - not a meaningful
+    # grouping. RJSF renders an object's own title as a big fieldset-style
+    # header (unlike a scalar field's normal-sized label), so each WRAPPER's
+    # own label is hidden here (ui:options.label: false, on the wrapper
+    # itself) and the INNER field's own label is left visible instead - its
+    # normal scalar rendering keeps the same font size as every other field,
+    # matching how these looked before wrapping. grid_cell_size_settings is
+    # the one exception: its inner field (auto_scale_or_custom_cell_size)
+    # already carried its own "Grid Cell Size" title before any of this
+    # wrapping existed (see the comment above), so it's untouched here - only
+    # the new outer wrapper's label is hidden.
+    #
     # This array is positional, matching the schema's own anyOf order exactly:
-    # McpMethodArgs (index 0, plain), EtdMethodArgs (index 1, has the nested Grid
-    # Cell Size override), BbmmMethodArgs (index 2, plain).
+    # McpMethodArgs (index 0), EtdMethodArgs (index 1, has the nested Grid Cell
+    # Size override), BbmmMethodArgs (index 2).
     Home Range Method.home_range_args.args.anyOf:
       - ui:options:
           label: false
-      - ui:options:
-          label: false
-        auto_scale_or_custom_cell_size:
+        show_relocations_settings:
           ui:options:
             label: false
-          anyOf:
-            - ui:options:
-                label: false
-            - ui:options:
-                label: false
       - ui:options:
           label: false
+        speed_settings:
+          ui:options:
+            label: false
+        expansion_factor_settings:
+          ui:options:
+            label: false
+        grid_cell_size_settings:
+          ui:options:
+            label: false
+          auto_scale_or_custom_cell_size:
+            anyOf:
+              - ui:options:
+                  label: false
+                auto_scale_or_custom:
+                  ui:widget: hidden
+              - ui:options:
+                  label: false
+                auto_scale_or_custom:
+                  ui:widget: hidden
+      - ui:options:
+          label: false
+        location_error_settings:
+          ui:options:
+            label: false
+        time_step_settings:
+          ui:options:
+            label: false
+        expansion_factor_settings:
+          ui:options:
+            label: false
+        max_data_gap_settings:
+          ui:options:
+            label: false
 
 task-instance-defaults:
   skipif:
@@ -281,21 +449,50 @@ workflow:
       df: ${{ workflow.subject_traj_named.return }}
       groupers: ${{ workflow.resolved_groupers.return }}
 
-  - name: Map Base Layers
-    id: base_map_defs
-    task: set_base_maps
-
-  # ── Home Range (ETD or MCP, user-selectable) ──────────────────────────────
+  # ── Home Range (ETD, MCP, or BBMM, user-selectable) ───────────────────────
   #
-  # A single "Method" field lets the user pick ETD or MCP; only the selected
-  # method's own settings are present in the submitted data - no shared
-  # discriminator field, EtdMethodArgs/McpMethodArgs are told apart structurally
-  # (see _meta_tasks.py). call_home_range_from_args dispatches to whichever
-  # method was chosen and returns the same percentile/geometry/area_sqkm shape
-  # either way, so the map/table below don't need to know or care which method
-  # actually ran. The GeoTIFF raster always reuses whatever ETD parameters were
-  # set (or falls back to ETD's own defaults if MCP is selected instead), since
-  # MCP has no raster/UD surface of its own.
+  # SUPERSEDED (kept for history, see below for the current design):
+  # # A single "Method" field lets the user pick ETD, MCP, or BBMM; only the
+  # # selected method's own settings are present in the submitted data - no
+  # # shared discriminator field, EtdMethodArgs/McpMethodArgs/BbmmMethodArgs are
+  # # told apart structurally via disjoint field names (see _home_range.py).
+  # # (A real `method` discriminator + allOf/if/then was tried instead, to avoid
+  # # anyOf's known "switching methods wipes previously-entered values" quirk -
+  # # live-tested at the time and found that allOf/if/then adding brand-new
+  # # properties not already in the base schema doesn't render fields at all in
+  # # this app's actual RJSF setup, so reverted back to the disjoint-property
+  # # anyOf pattern, which is proven to work - it's the same one
+  # # icf/workflows/patrol_events already uses in production.
+  # #
+  # # CORRECTION (re-tested later, see ecoscope's _patrol_summary.py
+  # # make_aggregation_json_schema_extra for a shipped example): allOf/if/then
+  # # DOES render correctly and DOES retain values across branch switches (no
+  # # field-blanking at all, since there's only one schema/formData object -
+  # # nothing to reset), PROVIDED the schema has no additionalProperties/
+  # # unevaluatedProperties anywhere and no default on the conditionally-revealed
+  # # fields - our original test apparently had one of those, which is what
+  # # actually broke it, not allOf/if/then itself. Not worth migrating this
+  # # already-shipped, already-proven selector to it retroactively, but prefer
+  # # discriminator + if/then (with those constraints) over the disjoint-property
+  # # anyOf/wrapper-object pattern for any *new* multi-branch selector - it's
+  # # simpler and doesn't need the wrapper-object indirection at all.)
+  #
+  # A single "Method" field lets the user pick ETD, MCP, or BBMM; only the
+  # selected method's own settings are present in the submitted data.
+  # EtdMethodArgs/McpMethodArgs/BbmmMethodArgs now share property names (crs,
+  # percentiles, expansion_factor) where the same concept applies across
+  # variants, plus each keep one genuinely-required field of their own
+  # (speed_settings/location_error_settings, or no required field at all for
+  # MCP) for branch disambiguation - see _home_range.py's module comment for
+  # the full explanation of why this is safe for RJSF's anyOf matching AND is
+  # what actually fixes "switching methods away and back blanks previously-
+  # entered values", a real upstream RJSF bug confirmed by porting and
+  # executing its actual source (not just the disjoint-name workaround the
+  # comment above describes, which never fixed that bug - it just avoided a
+  # different, matching-ambiguity problem). call_home_range_from_args
+  # dispatches to whichever method was chosen and returns the same
+  # percentile/geometry/area_sqkm shape either way, so the map/table below
+  # don't need to know or care which method actually ran.
 
   - title: Home Range Method
     type: task-group
@@ -303,9 +500,6 @@ workflow:
     tasks:
       - id: home_range_args
         task: set_home_range_args
-
-      - id: home_range_rings_correction
-        task: set_bool_var
 
   # MCP/BBMM have no ETD-shaped raster/UD surface, so this (and etd_raster below,
   # via its own default any_dependency_skipped condition catching this task's
@@ -380,15 +574,25 @@ workflow:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.subject_traj_groups.return }}
 
-  - name: Legend Title
-    id: home_range_legend_title
-    task: set_string_var
+  # Map-rendering settings, kept separate from Home Range Method above so
+  # algorithm/statistical settings (per-method) aren't mixed in with purely
+  # cosmetic ones (shared across all three methods). base_map_defs lives here
+  # too (merged from its own former standalone card) - it's a map-rendering
+  # setting like the other two, not tied to any one home-range method, and
+  # this is purely a spec.yaml grouping change (task-group), no task-library
+  # change needed.
+  - title: Map Style
+    type: task-group
+    description: ""
+    tasks:
+      - id: base_map_defs
+        task: set_base_maps
 
-  - name: Get Map Opacity
-    id: home_range_opacity
-    task: get_home_range_opacity
-    partial:
-      args: ${{ workflow.home_range_args.return }}
+      - id: home_range_legend_title
+        task: set_string_var
+
+      - id: home_range_opacity
+        task: set_layer_opacity
 
   - name: Get Stroked Setting
     id: home_range_stroked
@@ -396,13 +600,24 @@ workflow:
     partial:
       args: ${{ workflow.home_range_args.return }}
 
+  # Always true for MCP, always false for ETD/BBMM (get_rings_correction_from_args
+  # derives it from the selected method) - not user-configurable. MCP's percentile
+  # hulls are cumulative/nested, so the correction always applies there; ETD/BBMM's
+  # isopleths come from a continuous density surface, so it never applies there.
+  - name: Get Rings Correction Setting
+    id: home_range_rings_correction
+    task: get_rings_correction_from_args
+    partial:
+      args: ${{ workflow.home_range_args.return }}
+
   # ── MCP points overlay ──────────────────────────────────────────────────
   #
   # relocations_for_points_overlay returns the real relocations for MCP (the
-  # literal point subset its hull was computed from) or an empty GeoDataFrame
-  # for ETD (a density surface has no equivalent discrete subset) - an empty
-  # GeoJSON layer renders nothing, so this stays a no-op for ETD without any
-  # skipif/branching.
+  # literal point subset its hull was computed from) when MCP's own
+  # show_relocations_settings.show_relocations is enabled, or an empty
+  # GeoDataFrame otherwise (ETD/BBMM never show points - a density surface
+  # has no equivalent discrete subset) - an empty GeoJSON layer renders
+  # nothing, so this stays a no-op without any skipif/branching.
 
   - name: Filter Points to MCP Only
     id: home_range_points_gdf
@@ -437,7 +652,14 @@ workflow:
         point_radius_min_pixels: 1
         opacity: 0.8
       legend: null
-      tooltip_columns: null
+      # Explicit, not null - null relies on draw_map treating "no tooltip_columns
+      # entry for this layer" as "show all properties", but it actually omits
+      # the layer from the tooltip widget's config entirely, so nothing shows
+      # on hover at all. fixtime is the only property this GeoDataFrame carries
+      # (see Trajectory.to_relocations()), so it's also the only one worth
+      # naming here.
+      tooltip_columns:
+        - fixtime
       zoom: false
       data_url: null
     mapvalues:
@@ -448,8 +670,8 @@ workflow:
   # (same CompositeFilter -> hash encoding the FE uses for `views_json` keys),
   # in addition to the single combined table above.
   - name: Export Percentiles
-    id: persist_etd_pct_grouped
-    task: ecoscope_workflows_ext_custom.tasks.io.persist_grouped_dfs_for_results_download
+    id: persist_home_range_pct_grouped
+    task: persist_grouped_dfs_for_results_download
     partial:
       grouped_dfs: ${{ workflow.home_range_percentiles_grouped.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
@@ -478,7 +700,7 @@ workflow:
           argvalues: ${{ workflow.home_range_percentiles_grouped.return }}
 
       - name: Cast Percentile Column
-        id: etd_pct_to_string
+        id: home_range_pct_to_string
         task: convert_column_values_to_string
         partial:
           columns:
@@ -487,8 +709,8 @@ workflow:
           argnames: df
           argvalues: ${{ workflow.home_range_pct_rings.return }}
 
-      - name: Color Map - ETD Percentiles
-        id: etd_pct_colormap
+      - name: Color Map - Home Range Percentiles
+        id: home_range_pct_colormap
         task: apply_color_map
         partial:
           input_column_name: percentile
@@ -496,52 +718,59 @@ workflow:
           output_column_name: percentile_color
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.etd_pct_to_string.return }}
+          argvalues: ${{ workflow.home_range_pct_to_string.return }}
 
-      - name: Reproject ETD Percentiles for Map (WGS84)
-        id: etd_pct_wgs84
+      - name: Reproject Home Range Percentiles for Map (WGS84)
+        id: home_range_pct_wgs84
         task: convert_crs
         partial:
           crs: EPSG:4326
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.etd_pct_colormap.return }}
+          argvalues: ${{ workflow.home_range_pct_colormap.return }}
 
-      - name: Format Area for Display
-        id: etd_pct_area_display
-        task: map_values_with_unit
-        partial:
-          input_column_name: area_sqkm
-          output_column_name: area_sqkm
-          original_unit: "km²"
-          new_unit: "km²"
-          decimal_places: 2
-        mapvalues:
-          argnames: df
-          argvalues: ${{ workflow.etd_pct_wgs84.return }}
+      # Area is kept as a real number (not map_values_with_unit's formatted
+      # "0.11 km²" string) so downloading the percentile table stays directly
+      # usable in another analysis tool - a text-and-number cell would be
+      # read back as a string, not a number. The unit lives in the column
+      # header ("Area (km²)") instead of a formatted cell value. Left
+      # unrounded here since this feeds the map tooltip too (see the
+      # Percentile Table group below for the table-only rounded version).
+      # - name: Format Area for Display
+      #   id: home_range_pct_area_display
+      #   task: map_values_with_unit
+      #   partial:
+      #     input_column_name: area_sqkm
+      #     output_column_name: area_sqkm
+      #     original_unit: "km²"
+      #     new_unit: "km²"
+      #     decimal_places: 2
+      #   mapvalues:
+      #     argnames: df
+      #     argvalues: ${{ workflow.home_range_pct_wgs84.return }}
 
       - name: Rename Percentile/Area for Display
-        id: etd_pct_display
+        id: home_range_pct_display
         task: map_columns
         partial:
           drop_columns: []
           retain_columns: []
           rename_columns:
             percentile: Percentile
-            area_sqkm: Area
+            area_sqkm: "Area (km²)"
           raise_if_not_found: true
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.etd_pct_area_display.return }}
+          argvalues: ${{ workflow.home_range_pct_wgs84.return }}
 
       - name: Home Range Percentile Layer
-        id: etd_pct_layer
+        id: home_range_pct_layer
         task: create_geojson_layer
         partial:
           layer_style:
             filled: true
             # stroked comes from get_stroked_from_args - true (black outline)
-            # for MCP's few large convex hulls, false for ETD's many small raster-cell
+            # for MCP's few large convex hulls, false for ETD/BBMM's many small raster-cell
             # fragments (a black outline on every one looked like a messy quilted mesh).
             # get_line_color/get_line_width are complete no-ops whenever stroked is false.
             stroked: ${{ workflow.home_range_stroked.return }}
@@ -557,7 +786,7 @@ workflow:
             sort: ascending
           tooltip_columns:
             - Percentile
-            - Area
+            - "Area (km²)"
           # false (not true) so draw_map's fit-bounds fallback fires and fits to the
           # union of this layer + home_range_points_layer, rather than fitting to just
           # this layer's bounds and potentially cropping out the MCP points overlay.
@@ -565,14 +794,14 @@ workflow:
           data_url: null
         mapvalues:
           argnames: geodataframe
-          argvalues: ${{ workflow.etd_pct_display.return }}
+          argvalues: ${{ workflow.home_range_pct_display.return }}
 
       - name: Combine Percentile and Points Layers
         id: home_range_combined_layers
         task: groupbykey
         partial:
           iterables:
-            - ${{ workflow.etd_pct_layer.return }}
+            - ${{ workflow.home_range_pct_layer.return }}
             - ${{ workflow.home_range_points_layer.return }}
 
       - name: Compute Fitted Map View per Group
@@ -592,8 +821,8 @@ workflow:
             - ${{ workflow.home_range_combined_layers.return }}
             - ${{ workflow.home_range_view_state.return }}
 
-      - name: Draw ETD Home Range Map per Group
-        id: etd_map
+      - name: Draw Home Range Map per Group
+        id: home_range_map
         task: draw_map
         partial:
           tile_layers: ${{ workflow.base_map_defs.return }}
@@ -607,18 +836,18 @@ workflow:
           argnames: [geo_layers, view_state]
           argvalues: ${{ workflow.home_range_map_and_view.return }}
 
-      - name: Persist ETD Home Range Map (HTML) per Group
-        id: persist_etd_map_html
+      - name: Persist Home Range Map (HTML) per Group
+        id: persist_home_range_map_html
         task: persist_text
         partial:
           root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          filename_suffix: etd_home_range_map
+          filename_suffix: home_range_map
         mapvalues:
           argnames: text
-          argvalues: ${{ workflow.etd_map.return }}
+          argvalues: ${{ workflow.home_range_map.return }}
 
-      - name: ETD Map Widget Views
-        id: etd_map_widget_views
+      - name: Home Range Map Widget Views
+        id: home_range_map_widget_views
         task: create_map_widget_single_view
         partial:
           title: "Home Range Map"
@@ -626,33 +855,38 @@ workflow:
           argnames:
             - view
             - data
-          argvalues: ${{ workflow.persist_etd_map_html.return }}
+          argvalues: ${{ workflow.persist_home_range_map_html.return }}
 
-      - name: ETD Map Widget
-        id: etd_map_widget
+      - name: Home Range Map Widget
+        id: home_range_map_widget
         task: merge_widget_views
         partial:
-          widgets: ${{ workflow.etd_map_widget_views.return }}
+          widgets: ${{ workflow.home_range_map_widget_views.return }}
 
   - title: Percentile Table
     type: task-group
     description: Percentile / area table for the home range, as a dashboard widget.
     tasks:
-      - name: Select Percentile Table Columns
-        id: etd_pct_table_columns
-        task: map_columns
+      # Rounds Area to 2 decimal places for a clean on-screen/download look -
+      # scoped to the table only, via SQL ROUND (keeps the value numeric,
+      # unlike map_values_with_unit's string formatting). The map tooltip
+      # (home_range_pct_layer above) intentionally keeps the unrounded value
+      # from home_range_pct_display, since it isn't affected by this step.
+      - name: Select and Round Percentile Table Columns
+        id: home_range_pct_table_columns
+        task: apply_sql_query
         partial:
-          drop_columns: []
-          retain_columns:
+          query: >-
+            SELECT "Percentile", ROUND("Area (km²)", 2) AS "Area (km²)" FROM df
+          columns:
             - Percentile
-            - Area
-          rename_columns: {}
-          raise_if_not_found: true
+            - "Area (km²)"
+          sanitize: true
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.etd_pct_display.return }}
+          argvalues: ${{ workflow.home_range_pct_display.return }}
 
-      - id: etd_pct_table
+      - id: home_range_pct_table
         task: draw_table
         partial:
           columns: null
@@ -663,20 +897,20 @@ workflow:
             hide_header: false
         mapvalues:
           argnames: dataframe
-          argvalues: ${{ workflow.etd_pct_table_columns.return }}
+          argvalues: ${{ workflow.home_range_pct_table_columns.return }}
 
-      - name: Persist ETD Percentile Table (HTML) per Group
-        id: persist_etd_pct_table_html
+      - name: Persist Home Range Percentile Table (HTML) per Group
+        id: persist_home_range_table_html
         task: persist_text
         partial:
           root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          filename_suffix: etd_percentile_table
+          filename_suffix: home_range_percentile_table
         mapvalues:
           argnames: text
-          argvalues: ${{ workflow.etd_pct_table.return }}
+          argvalues: ${{ workflow.home_range_pct_table.return }}
 
-      - name: ETD Percentile Table Widget Views
-        id: etd_pct_table_widget_views
+      - name: Home Range Percentile Table Widget Views
+        id: home_range_table_widget_views
         task: create_plot_widget_single_view
         partial:
           title: "Percentile Table"
@@ -684,13 +918,13 @@ workflow:
           argnames:
             - view
             - data
-          argvalues: ${{ workflow.persist_etd_pct_table_html.return }}
+          argvalues: ${{ workflow.persist_home_range_table_html.return }}
 
-      - name: ETD Percentile Table Widget
-        id: etd_pct_table_widget
+      - name: Home Range Percentile Table Widget
+        id: home_range_pct_table_widget
         task: merge_widget_views
         partial:
-          widgets: ${{ workflow.etd_pct_table_widget_views.return }}
+          widgets: ${{ workflow.home_range_table_widget_views.return }}
 
   - name: Create Dashboard
     id: dashboard
@@ -698,7 +932,7 @@ workflow:
     partial:
       details: ${{ workflow.workflow_details.return }}
       widgets:
-        - ${{ workflow.etd_map_widget.return }}
-        - ${{ workflow.etd_pct_table_widget.return }}
+        - ${{ workflow.home_range_map_widget.return }}
+        - ${{ workflow.home_range_pct_table_widget.return }}
       groupers: ${{ workflow.resolved_groupers.return }}
       time_range: ${{ workflow.time_range.return }}

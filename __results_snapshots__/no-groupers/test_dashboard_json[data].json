@@ -1,0 +1,55 @@
+{
+  "error": null,
+  "result": {
+    "filters": {
+      "schema": {
+        "properties": {
+          "All": {
+            "default": "True",
+            "oneOf": [
+              {
+                "const": "True",
+                "title": "True"
+              }
+            ],
+            "title": "All",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "uiSchema": {
+          "All": {
+            "ui:title": "All",
+            "ui:widget": "select"
+          }
+        }
+      }
+    },
+    "layout": [],
+    "metadata": {
+      "description": "ETD home range with no groupers, pooling all subjects together.",
+      "time_range": "From 01 Jan 2000 to 01 Jan 2020",
+      "time_zone": "UTC",
+      "title": "Elephants ETD Home Range"
+    },
+    "views": {
+      "{\"All\": \"True\"}": [
+        {
+          "data": "tmpfile",
+          "id": 0,
+          "is_filtered": true,
+          "title": "Home Range Map",
+          "widget_type": "map"
+        },
+        {
+          "data": "tmpfile",
+          "id": 1,
+          "is_filtered": true,
+          "title": "Percentile Table",
+          "widget_type": "graph"
+        }
+      ]
+    }
+  },
+  "trace": null
+}

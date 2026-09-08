@@ -138,4 +138,4 @@ jobs:
           ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__MEP_DEV__USERNAME: ${{ secrets.ER_USERNAME }}
         run: |
           chmod +x dev/pytest-cli.sh || true
-          bash dev/pytest-cli.sh etd --all
+          bash dev/pytest-cli.sh home_range --all
