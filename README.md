@@ -42,7 +42,7 @@ Edit `param.yaml`:
 ```bash
 pixi run compile-etd
 
-cd ecoscope-workflows-etd-workflow
+cd ecoscope-workflows-home-range-workflow
 ECOSCOPE_WORKFLOWS_RESULTS="file:///tmp/workflows/etd/output" \
-  pixi run ecoscope-workflows-etd-workflow run --config-file ../param.yaml --execution-mode sequential --no-mock-io
+  pixi run ecoscope-workflows-home-range-workflow run --config-file ../param.yaml --execution-mode sequential --no-mock-io
 ```
