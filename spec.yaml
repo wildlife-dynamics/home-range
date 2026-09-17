@@ -2,7 +2,7 @@ id: home_range
 metadata:
   name: Home Range Workflow
   description: >-
-    Computes a subject group's home range using the Elliptical Time-Density (ETD) model - a trajectory-based, nonparametric estimate of the utilization distribution (UD) derived from the group's movement behaviour. Outputs the raw UD surface as a GeoTIFF and a percentile-area table (isopleth levels, e.g. 50/60/70/80/90/99.999%) as GeoParquet and CSV.
+    Computes a subject group's home range using the Elliptical Time-Density (ETD), Brownian Bridge Movement Model (BBMM), or Minimum Convex Polygon (MCP) method - trajectory-based estimates of the utilization distribution (UD) derived from the group's movement behaviour. Outputs the raw UD surface as a GeoTIFF and a percentile-area table (isopleth levels, e.g. 50/60/70/80/90/99.999%) as GeoParquet and CSV.
   maintainers:
     - name: Zakariya Husayn
       email: zakariya@wildlifedynamics.com
