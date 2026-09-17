@@ -1,4 +1,48 @@
 id: home_range
+metadata:
+  name: Home Range Workflow
+  description: >-
+    Computes a subject group's home range using the Elliptical Time-Density (ETD), Brownian Bridge Movement Model (BBMM), or Minimum Convex Polygon (MCP) method - trajectory-based estimates of the utilization distribution (UD) derived from the group's movement behaviour. Outputs the raw UD surface as a GeoTIFF and a percentile-area table (isopleth levels, e.g. 50/60/70/80/90/99.999%) as GeoParquet and CSV.
+  maintainers:
+    - name: Zakariya Husayn
+      email: zakariya@wildlifedynamics.com
+      role: owner
+    - name: Yun Wu
+      email: yun@wildlifedynamics.com
+      role: reviewer
+  outputs:
+    - name: Home Range Dashboard
+      type: dashboard
+      description: >-
+        A dashboard that visualizes the computed home range as a percentile choropleth map
+        and a percentile/area table.
+      indicators:
+        - name: Home Range
+    - name: Home Range Map
+      type: map
+      description: >-
+        A percentile choropleth map of the home range, colored by isopleth level.
+      indicators:
+        - name: Home Range
+    - name: Percentile Table
+      type: plot
+      description: >-
+        A percentile / area table for the home range.
+      indicators:
+        - name: Home Range
+    - name: Home Range Data
+      type: file
+      description: >-
+        The percentile/area table as GeoParquet and CSV; for the ETD and BBMM methods, also a
+        GeoTIFF of the underlying utilization-distribution surface (not produced for MCP).
+      indicators:
+        - name: Home Range
+  license: BSD-3-Clause
+  repository: https://github.com/wildlife-dynamics/home-range
+  documentation: https://github.com/wildlife-dynamics/home-range#readme
+  readme: README.md
+  keywords: [home-range, etd, mcp, bbmm, telemetry]
+  thumbnail: resources/thumbnail.png
 
 requirements:
   - name: ecoscope-platform
