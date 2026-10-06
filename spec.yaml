@@ -437,6 +437,7 @@ workflow:
         extra__subject_subtype: subject_subtype
         extra__sex: subject_sex
       raise_if_not_found: true
+      duplicate_strategy: suffix
 
   - name: Split Trajectory by Group
     id: subject_traj_groups
@@ -697,6 +698,25 @@ workflow:
           argnames: percentiles_gdf
           argvalues: ${{ workflow.home_range_percentiles_grouped.return }}
 
+      # Rounds Area to 2 decimal places once, upstream of both the map tooltip
+      # and the Percentile Table, so they show the same value. SQL ROUND keeps
+      # it numeric (unlike map_values_with_unit's string formatting). Runs
+      # before the color map on purpose: apply_sql_query's sanitize step turns
+      # list columns like percentile_color into JSON strings and never turns
+      # them back. Geometry and CRS are preserved. The persisted percentiles
+      # CSV reads home_range_percentiles_grouped, so it keeps full precision.
+      - name: Round Home Range Area
+        id: home_range_pct_rounded
+        task: apply_sql_query
+        partial:
+          query: >-
+            SELECT percentile, ROUND(area_sqkm, 2) AS area_sqkm, geometry FROM df
+          columns: null
+          sanitize: true
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.home_range_pct_rings.return }}
+
       - name: Cast Percentile Column
         id: home_range_pct_to_string
         task: convert_column_values_to_string
@@ -705,7 +725,7 @@ workflow:
             - percentile
         mapvalues:
           argnames: df
-          argvalues: ${{ workflow.home_range_pct_rings.return }}
+          argvalues: ${{ workflow.home_range_pct_rounded.return }}
 
       - name: Color Map - Home Range Percentiles
         id: home_range_pct_colormap
@@ -731,9 +751,8 @@ workflow:
       # "0.11 km²" string) so downloading the percentile table stays directly
       # usable in another analysis tool - a text-and-number cell would be
       # read back as a string, not a number. The unit lives in the column
-      # header ("Area (km²)") instead of a formatted cell value. Left
-      # unrounded here since this feeds the map tooltip too (see the
-      # Percentile Table group below for the table-only rounded version).
+      # header ("Area (km²)") instead of a formatted cell value. Already
+      # rounded to 2dp upstream (home_range_pct_rounded).
       # - name: Format Area for Display
       #   id: home_range_pct_area_display
       #   task: map_values_with_unit
@@ -866,17 +885,15 @@ workflow:
     type: task-group
     description: Percentile / area table for the home range, as a dashboard widget.
     tasks:
-      # Rounds Area to 2 decimal places for a clean on-screen/download look -
-      # scoped to the table only, via SQL ROUND (keeps the value numeric,
-      # unlike map_values_with_unit's string formatting). The map tooltip
-      # (home_range_pct_layer above) intentionally keeps the unrounded value
-      # from home_range_pct_display, since it isn't affected by this step.
-      - name: Select and Round Percentile Table Columns
+      # Selects just the table's columns (dropping geometry/color). Area is
+      # already rounded to 2dp upstream (home_range_pct_rounded), shared with
+      # the map tooltip.
+      - name: Select Percentile Table Columns
         id: home_range_pct_table_columns
         task: apply_sql_query
         partial:
           query: >-
-            SELECT "Percentile", ROUND("Area (km²)", 2) AS "Area (km²)" FROM df
+            SELECT "Percentile", "Area (km²)" FROM df
           columns:
             - Percentile
             - "Area (km²)"

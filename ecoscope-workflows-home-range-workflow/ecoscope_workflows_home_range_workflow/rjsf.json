@@ -223,27 +223,6 @@
         }
       }
     },
-    "subject_traj_named": {
-      "additionalProperties": false,
-      "properties": {
-        "duplicate_strategy": {
-          "default": "suffix",
-          "enum": [
-            "suffix",
-            "skip",
-            "overwrite",
-            "error"
-          ],
-          "title": "Duplicate Strategy",
-          "type": "string",
-          "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Rename Subject Columns for Grouping"
-    },
     "Home Range Method": {
       "type": "object",
       "description": "Choose which home-range estimation method to compute for the map and table.",
@@ -1286,7 +1265,6 @@
       "Subject Group",
       "Filter Data",
       "Group Data",
-      "subject_traj_named",
       "Home Range Method",
       "Map Style",
       "persist_home_range_pct_grouped"

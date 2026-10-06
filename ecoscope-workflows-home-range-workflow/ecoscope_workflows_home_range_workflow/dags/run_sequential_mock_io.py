@@ -495,6 +495,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "extra__sex": "subject_sex",
             },
             raise_if_not_found=True,
+            duplicate_strategy="suffix",
             **(params.get("subject_traj_named") or {}),
         )
         .call()
@@ -854,6 +855,28 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
     )
 
+    home_range_pct_rounded = (
+        task(apply_sql_query)
+        .validate()
+        .set_task_instance_id("home_range_pct_rounded")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            query="SELECT percentile, ROUND(area_sqkm, 2) AS area_sqkm, geometry FROM df",
+            columns=None,
+            sanitize=True,
+            **(params.get("home_range_pct_rounded") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=home_range_pct_rings)
+    )
+
     home_range_pct_to_string = (
         task(convert_column_values_to_string)
         .validate()
@@ -870,7 +893,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             columns=["percentile"], **(params.get("home_range_pct_to_string") or {})
         )
-        .mapvalues(argnames=["df"], argvalues=home_range_pct_rings)
+        .mapvalues(argnames=["df"], argvalues=home_range_pct_rounded)
     )
 
     home_range_pct_colormap = (
@@ -1131,7 +1154,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            query='SELECT "Percentile", ROUND("Area (km²)", 2) AS "Area (km²)" FROM df',
+            query='SELECT "Percentile", "Area (km²)" FROM df',
             columns=["Percentile", "Area (km²)"],
             sanitize=True,
             **(params.get("home_range_pct_table_columns") or {}),
