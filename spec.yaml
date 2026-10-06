@@ -20,11 +20,6 @@ rjsf-overrides:
         transformer_kws:
           type: subject_group_name
           depends_on: properties.er_client.properties.data_source.properties.name
-    Group Data.properties.groupers.properties.groupers.ecoscope:transform:
-      - transformer: EarthRangerEnumResolver
-        transformer_kws:
-          type: spatial_feature_group
-          depends_on: properties.er_client.properties.data_source.properties.name
     Group Data.properties.groupers.properties.groupers.description: ""
     Group Data.properties.groupers.properties.groupers.default:
       - index_name: subject_name
@@ -346,45 +341,22 @@ workflow:
 
   # ── Grouping ───────────────────────────────────────────────────────────────
   #
-  # Optional: split the trajectory (by subject name/subtype/sex, by time period,
-  # and/or by a spatial feature group) so ETD is computed once per group instead
-  # of pooling every individual in the subject group together. Left unset,
-  # `set_groupers` returns `AllGrouper` and `split_groups` passes the whole
-  # trajectory through as a single group - matching subject-tracking.
-  #
-  # `resolved_groupers` only does real work for spatial (zone-based) groupers -
-  # it fetches the actual polygon boundaries so `add_spatial_index` can assign
-  # each trajectory point to a zone. For plain category/time groupers it's a
-  # passthrough (verified directly against `resolve_spatial_feature_groups_for_
-  # spatial_groupers`'s source: it only mutates `SpatialGrouper` entries).
+  # Optional: split the trajectory (by subject name/subtype/sex and/or by time
+  # period) so ETD is computed once per group instead of pooling every
+  # individual in the subject group together. Left unset, `set_groupers`
+  # returns `AllGrouper` and `split_groups` passes the whole trajectory through
+  # as a single group - matching subject-tracking. Spatial (feature-group)
+  # grouping isn't offered: the form only lists Temporal/Value groupers (see
+  # the groupers.items.anyOf rjsf-override), so there's no spatial plumbing.
 
   - title: Group Data
     type: task-group
     description: >-
-      Optionally group the data by subject, time period, or spatial feature group to
-      compute the home range separately per group.
+      Optionally group the data by subject or time period to compute the home
+      range separately per group.
     tasks:
       - id: groupers
         task: set_groupers
-
-      - id: spatial_group_ids
-        task: extract_spatial_grouper_feature_group_names
-        partial:
-          groupers: ${{ workflow.groupers.return }}
-
-      - id: fetch_spatial_feature_groups
-        task: get_spatial_features_group
-        partial:
-          client: ${{ workflow.er_client.return }}
-        map:
-          argnames: spatial_features_group_name
-          argvalues: ${{ workflow.spatial_group_ids.return }}
-
-      - id: resolved_groupers
-        task: resolve_spatial_feature_groups_for_spatial_groupers
-        partial:
-          groupers: ${{ workflow.groupers.return }}
-          spatial_feature_groups: ${{ workflow.fetch_spatial_feature_groups.return }}
 
   - name: Transform Observations to Relocations
     id: subject_reloc
@@ -414,22 +386,15 @@ workflow:
     partial:
       df: ${{ workflow.subject_traj.return }}
       time_col: segment_start
-      groupers: ${{ workflow.resolved_groupers.return }}
+      groupers: ${{ workflow.groupers.return }}
       cast_to_datetime: true
       format: mixed
-
-  - name: Add Spatial Index to Trajectory
-    id: traj_spatial_index
-    task: add_spatial_index
-    partial:
-      gdf: ${{ workflow.traj_temporal_index.return }}
-      groupers: ${{ workflow.resolved_groupers.return }}
 
   - name: Rename Subject Columns for Grouping
     id: subject_traj_named
     task: map_columns
     partial:
-      df: ${{ workflow.traj_spatial_index.return }}
+      df: ${{ workflow.traj_temporal_index.return }}
       drop_columns: []
       retain_columns: []
       rename_columns:
@@ -444,7 +409,7 @@ workflow:
     task: split_groups
     partial:
       df: ${{ workflow.subject_traj_named.return }}
-      groupers: ${{ workflow.resolved_groupers.return }}
+      groupers: ${{ workflow.groupers.return }}
 
   # ── Home Range (ETD, MCP, or BBMM, user-selectable) ───────────────────────
   #
@@ -950,5 +915,5 @@ workflow:
       widgets:
         - ${{ workflow.home_range_map_widget.return }}
         - ${{ workflow.home_range_pct_table_widget.return }}
-      groupers: ${{ workflow.resolved_groupers.return }}
+      groupers: ${{ workflow.groupers.return }}
       time_range: ${{ workflow.time_range.return }}

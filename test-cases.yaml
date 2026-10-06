@@ -87,36 +87,6 @@ temporal-grouper:
           expansion_factor: 1.3
         percentiles: ["50", "60", "70", "80", "90", "99.999"]
 
-spatial-grouper:
-  name: Spatial Grouper by Feature Group
-  description: "ETD home range grouped by spatial feature group."
-  mock_io: true
-  params:
-    workflow_details:
-      name: "Elephants ETD Home Range"
-      description: "ETD home range grouped by spatial feature group."
-    er_client:
-      data_source:
-        name: mep_dev
-    time_range:
-      since: "2000-01-01T00:00:00.000Z"
-      until: "2020-01-01T00:00:00.000Z"
-    subject_observations:
-      subject_group_name: "Elephants"
-    groupers:
-      groupers:
-        - spatial_index_name: "SpatialGrouperTest"
-    home_range_legend_title:
-      var: "Home Range %"
-    home_range_args:
-      args:
-        crs: "EPSG:3857"
-        speed_settings:
-          max_speed_factor: 1.05
-        expansion_factor_settings:
-          expansion_factor: 1.3
-        percentiles: ["50", "60", "70", "80", "90", "99.999"]
-
 with-bounding-box:
   name: Filter Data with Bounding Box
   description: "ETD home range filtered to a bounding box over Kenya."

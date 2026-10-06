@@ -27,24 +27,6 @@ get_subjectgroup_observations = create_func_magicmock(  # 🧪
     anchor="ecoscope.platform.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope.platform.tasks.config import get_bounding_box as get_bounding_box
-from ecoscope.platform.tasks.config import (
-    get_filter_point_coords as get_filter_point_coords,
-)
-from ecoscope.platform.tasks.config import get_segment_filter as get_segment_filter
-from ecoscope.platform.tasks.config import set_traj_filters as set_traj_filters
-from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
-from ecoscope.platform.tasks.transformation import (
-    apply_reloc_coord_filter as apply_reloc_coord_filter,
-)
-from ecoscope.platform.tasks.transformation import (
-    extract_spatial_grouper_feature_group_names as extract_spatial_grouper_feature_group_names,
-)
-
-get_spatial_features_group = create_func_magicmock(  # 🧪
-    anchor="ecoscope.platform.tasks.io",  # 🧪
-    func_name="get_spatial_features_group",  # 🧪
-)  # 🧪
 from ecoscope.platform.tasks.analysis import (
     generate_bbmm_raster as generate_bbmm_raster,
 )
@@ -60,12 +42,17 @@ from ecoscope.platform.tasks.config import (
 from ecoscope.platform.tasks.config import (
     get_bbmm_raster_params_from_args as get_bbmm_raster_params_from_args,
 )
+from ecoscope.platform.tasks.config import get_bounding_box as get_bounding_box
 from ecoscope.platform.tasks.config import (
     get_etd_raster_params_from_args as get_etd_raster_params_from_args,
 )
 from ecoscope.platform.tasks.config import (
+    get_filter_point_coords as get_filter_point_coords,
+)
+from ecoscope.platform.tasks.config import (
     get_rings_correction_from_args as get_rings_correction_from_args,
 )
+from ecoscope.platform.tasks.config import get_segment_filter as get_segment_filter
 from ecoscope.platform.tasks.config import (
     get_stroked_from_args as get_stroked_from_args,
 )
@@ -74,7 +61,9 @@ from ecoscope.platform.tasks.config import (
 )
 from ecoscope.platform.tasks.config import set_home_range_args as set_home_range_args
 from ecoscope.platform.tasks.config import set_string_var as set_string_var
+from ecoscope.platform.tasks.config import set_traj_filters as set_traj_filters
 from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
+from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.groupby import split_groups as split_groups
 from ecoscope.platform.tasks.io import (
     persist_grouped_dfs_for_results_download as persist_grouped_dfs_for_results_download,
@@ -103,12 +92,12 @@ from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_v
 from ecoscope.platform.tasks.results import set_base_maps as set_base_maps
 from ecoscope.platform.tasks.results import set_layer_opacity as set_layer_opacity
 from ecoscope.platform.tasks.transformation import (
-    add_spatial_index as add_spatial_index,
-)
-from ecoscope.platform.tasks.transformation import (
     add_temporal_index as add_temporal_index,
 )
 from ecoscope.platform.tasks.transformation import apply_color_map as apply_color_map
+from ecoscope.platform.tasks.transformation import (
+    apply_reloc_coord_filter as apply_reloc_coord_filter,
+)
 from ecoscope.platform.tasks.transformation import (
     apply_rings_correction_if_enabled as apply_rings_correction_if_enabled,
 )
@@ -118,9 +107,6 @@ from ecoscope.platform.tasks.transformation import (
 )
 from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope.platform.tasks.transformation import (
-    resolve_spatial_feature_groups_for_spatial_groupers as resolve_spatial_feature_groups_for_spatial_groupers,
-)
 from ecoscope_workflows_ext_custom.tasks.analysis import (
     generate_etd_raster as generate_etd_raster_1,
 )
@@ -321,61 +307,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    spatial_group_ids = (
-        task(extract_spatial_grouper_feature_group_names)
-        .validate()
-        .set_task_instance_id("spatial_group_ids")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(groupers=groupers, **(params.get("spatial_group_ids") or {}))
-        .call()
-    )
-
-    fetch_spatial_feature_groups = (
-        task(get_spatial_features_group)
-        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
-        .set_task_instance_id("fetch_spatial_feature_groups")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(client=er_client, **(params.get("fetch_spatial_feature_groups") or {}))
-        .map(argnames=["spatial_features_group_name"], argvalues=spatial_group_ids)
-    )
-
-    resolved_groupers = (
-        task(resolve_spatial_feature_groups_for_spatial_groupers)
-        .validate()
-        .set_task_instance_id("resolved_groupers")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            groupers=groupers,
-            spatial_feature_groups=fetch_spatial_feature_groups,
-            **(params.get("resolved_groupers") or {}),
-        )
-        .call()
-    )
-
     subject_reloc = (
         task(process_relocations)
         .validate()
@@ -443,31 +374,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             df=subject_traj,
             time_col="segment_start",
-            groupers=resolved_groupers,
+            groupers=groupers,
             cast_to_datetime=True,
             format="mixed",
             **(params.get("traj_temporal_index") or {}),
-        )
-        .call()
-    )
-
-    traj_spatial_index = (
-        task(add_spatial_index)
-        .validate()
-        .set_task_instance_id("traj_spatial_index")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            gdf=traj_temporal_index,
-            groupers=resolved_groupers,
-            **(params.get("traj_spatial_index") or {}),
         )
         .call()
     )
@@ -486,7 +396,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            df=traj_spatial_index,
+            df=traj_temporal_index,
             drop_columns=[],
             retain_columns=[],
             rename_columns={
@@ -516,7 +426,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             df=subject_traj_named,
-            groupers=resolved_groupers,
+            groupers=groupers,
             **(params.get("subject_traj_groups") or {}),
         )
         .call()
@@ -1265,7 +1175,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             details=workflow_details,
             widgets=[home_range_map_widget, home_range_pct_table_widget],
-            groupers=resolved_groupers,
+            groupers=groupers,
             time_range=time_range,
             **(params.get("dashboard") or {}),
         )

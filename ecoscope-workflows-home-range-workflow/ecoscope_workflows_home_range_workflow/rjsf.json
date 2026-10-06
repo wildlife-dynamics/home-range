@@ -180,7 +180,7 @@
     },
     "Group Data": {
       "type": "object",
-      "description": "Optionally group the data by subject, time period, or spatial feature group to compute the home range separately per group.",
+      "description": "Optionally group the data by subject or time period to compute the home range separately per group.",
       "ecoscope:task_group": true,
       "properties": {
         "groupers": {
@@ -205,16 +205,7 @@
               },
               "title": " ",
               "type": "array",
-              "description": "",
-              "ecoscope:transform": [
-                {
-                  "transformer": "EarthRangerEnumResolver",
-                  "transformer_kws": {
-                    "type": "spatial_feature_group",
-                    "depends_on": "properties.er_client.properties.data_source.properties.name"
-                  }
-                }
-              ]
+              "description": ""
             }
           },
           "type": "object",
