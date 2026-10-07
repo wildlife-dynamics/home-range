@@ -44,7 +44,6 @@ MATCHSPEC_OVERRIDE = "ecoscope-workflows-home-range-workflow"
 RESULTS_ENV_VAR = "ECOSCOPE_WORKFLOWS_RESULTS"
 IO_TASKS_IMPORTABLE_REFERENCES = [
     "ecoscope.platform.tasks.io.get_subjectgroup_observations",
-    "ecoscope.platform.tasks.io.get_spatial_features_group",
 ]
 
 yaml = ruamel.yaml.YAML(typ="safe")
