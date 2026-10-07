@@ -43,9 +43,6 @@ from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.groupby import split_groups as split_groups
 from ecoscope.platform.tasks.io import (
-    get_spatial_features_group as get_spatial_features_group,
-)
-from ecoscope.platform.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
 from ecoscope.platform.tasks.io import (
@@ -80,9 +77,6 @@ from ecoscope.platform.tasks.skip import (
 )
 from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.transformation import (
-    add_spatial_index as add_spatial_index,
-)
-from ecoscope.platform.tasks.transformation import (
     add_temporal_index as add_temporal_index,
 )
 from ecoscope.platform.tasks.transformation import apply_color_map as apply_color_map
@@ -97,13 +91,7 @@ from ecoscope.platform.tasks.transformation import (
     convert_column_values_to_string as convert_column_values_to_string,
 )
 from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
-from ecoscope.platform.tasks.transformation import (
-    extract_spatial_grouper_feature_group_names as extract_spatial_grouper_feature_group_names,
-)
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope.platform.tasks.transformation import (
-    resolve_spatial_feature_groups_for_spatial_groupers as resolve_spatial_feature_groups_for_spatial_groupers,
-)
 from ecoscope_workflows_ext_custom.tasks.analysis import (
     generate_etd_raster as generate_etd_raster_1,
 )
@@ -306,61 +294,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
-    spatial_group_ids = (
-        task(extract_spatial_grouper_feature_group_names)
-        .validate()
-        .set_task_instance_id("spatial_group_ids")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(groupers=groupers, **(params.get("spatial_group_ids") or {}))
-        .call()
-    )
-
-    fetch_spatial_feature_groups = (
-        task(get_spatial_features_group)
-        .validate()
-        .set_task_instance_id("fetch_spatial_feature_groups")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(client=er_client, **(params.get("fetch_spatial_feature_groups") or {}))
-        .map(argnames=["spatial_features_group_name"], argvalues=spatial_group_ids)
-    )
-
-    resolved_groupers = (
-        task(resolve_spatial_feature_groups_for_spatial_groupers)
-        .validate()
-        .set_task_instance_id("resolved_groupers")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            groupers=groupers,
-            spatial_feature_groups=fetch_spatial_feature_groups,
-            **(params.get("resolved_groupers") or {}),
-        )
-        .call()
-    )
-
     subject_reloc = (
         task(process_relocations)
         .validate()
@@ -428,31 +361,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             df=subject_traj,
             time_col="segment_start",
-            groupers=resolved_groupers,
+            groupers=groupers,
             cast_to_datetime=True,
             format="mixed",
             **(params.get("traj_temporal_index") or {}),
-        )
-        .call()
-    )
-
-    traj_spatial_index = (
-        task(add_spatial_index)
-        .validate()
-        .set_task_instance_id("traj_spatial_index")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            gdf=traj_temporal_index,
-            groupers=resolved_groupers,
-            **(params.get("traj_spatial_index") or {}),
         )
         .call()
     )
@@ -471,7 +383,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            df=traj_spatial_index,
+            df=traj_temporal_index,
             drop_columns=[],
             retain_columns=[],
             rename_columns={
@@ -480,6 +392,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "extra__sex": "subject_sex",
             },
             raise_if_not_found=True,
+            duplicate_strategy="suffix",
             **(params.get("subject_traj_named") or {}),
         )
         .call()
@@ -500,7 +413,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             df=subject_traj_named,
-            groupers=resolved_groupers,
+            groupers=groupers,
             **(params.get("subject_traj_groups") or {}),
         )
         .call()
@@ -839,6 +752,28 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
     )
 
+    home_range_pct_rounded = (
+        task(apply_sql_query)
+        .validate()
+        .set_task_instance_id("home_range_pct_rounded")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            query="SELECT percentile, ROUND(area_sqkm, 2) AS area_sqkm, geometry FROM df",
+            columns=None,
+            sanitize=True,
+            **(params.get("home_range_pct_rounded") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=home_range_pct_rings)
+    )
+
     home_range_pct_to_string = (
         task(convert_column_values_to_string)
         .validate()
@@ -855,7 +790,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             columns=["percentile"], **(params.get("home_range_pct_to_string") or {})
         )
-        .mapvalues(argnames=["df"], argvalues=home_range_pct_rings)
+        .mapvalues(argnames=["df"], argvalues=home_range_pct_rounded)
     )
 
     home_range_pct_colormap = (
@@ -1116,7 +1051,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            query='SELECT "Percentile", ROUND("Area (km²)", 2) AS "Area (km²)" FROM df',
+            query='SELECT "Percentile", "Area (km²)" FROM df',
             columns=["Percentile", "Area (km²)"],
             sanitize=True,
             **(params.get("home_range_pct_table_columns") or {}),
@@ -1227,7 +1162,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .partial(
             details=workflow_details,
             widgets=[home_range_map_widget, home_range_pct_table_widget],
-            groupers=resolved_groupers,
+            groupers=groupers,
             time_range=time_range,
             **(params.get("dashboard") or {}),
         )

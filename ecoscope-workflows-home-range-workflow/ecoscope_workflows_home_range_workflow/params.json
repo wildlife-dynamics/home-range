@@ -183,27 +183,6 @@
       "required": [],
       "title": ""
     },
-    "subject_traj_named": {
-      "additionalProperties": false,
-      "properties": {
-        "duplicate_strategy": {
-          "default": "suffix",
-          "enum": [
-            "suffix",
-            "skip",
-            "overwrite",
-            "error"
-          ],
-          "title": "Duplicate Strategy",
-          "type": "string",
-          "description": "Strategy for handling a rename whose new name is already taken. 'suffix': append _1, _2, etc. to the new name; 'skip': skip the rename, leaving the column under its original name; 'overwrite': replace the existing column; 'error': raise ValueError.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Rename Subject Columns for Grouping"
-    },
     "home_range_args": {
       "additionalProperties": false,
       "properties": {
@@ -1111,7 +1090,6 @@
       "subject_observations",
       "subject_filters",
       "groupers",
-      "subject_traj_named",
       "home_range_args",
       "home_range_legend_title",
       "base_map_defs",
