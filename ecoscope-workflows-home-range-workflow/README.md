@@ -10,7 +10,7 @@ artifacts_sha256_strict: c389e270dca6e9505ccb87538302aef5d9bc3455b0e81e9d6b09bc4
 installed_requirements:
 - channel: https://repo.prefix.dev/ecoscope-workflows/
   name: ecoscope-platform
-  version: {version: ==2.25.1}
+  version: {version: ==2.25.2}
 - channel: https://repo.prefix.dev/ecoscope-workflows-custom/
   name: ecoscope-workflows-ext-custom
   version: {version: ==0.1.1}
