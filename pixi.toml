@@ -8,8 +8,15 @@ channels = [
 platforms = ['linux-64', 'osx-arm64', 'osx-64', 'win-64']
 
 [dependencies]
-wt-compiler = "==0.10.1"
+wt-compiler = "==0.10.2"
 graphviz = "*"
+# wt-compiler writes VERSION.yaml with `YAML(typ="safe").dump(..., dst.open("wb"))`
+# but only asks for `ruamel.yaml >=0.17.0`, and on 0.17.x that dump writes str to
+# the binary handle: the compile dies with "a bytes-like object is required, not
+# 'str'" having already truncated VERSION.yaml to 0 bytes. 0.17.x gets picked only
+# when python reaches 3.15, which has no 0.18 build - so this pin also holds python
+# at 3.14. Drop once wt-compiler raises its own floor to >=0.18.
+"ruamel.yaml" = ">=0.18,<0.19"
 
 [tasks.compile-etd]
 cmd = './dev/recompile.sh --install'
