@@ -3,6 +3,8 @@ name: Test Workflows with Published Packages
 on:
   pull_request:
     types: [labeled, unlabeled, opened, synchronize, reopened]
+  push:
+    branches: [main, ecoscope-web]
 
 jobs:
   discover:
@@ -128,7 +130,7 @@ jobs:
 
       - uses: prefix-dev/setup-pixi@v0.9.6
         with:
-          pixi-version: v0.70.2
+          pixi-version: v0.80.0
 
       - name: Run all workflow test cases
         shell: bash

@@ -30,6 +30,7 @@ get_subjectgroup_observations = create_func_magicmock(  # 🧪
 from ecoscope.platform.tasks.analysis import (
     generate_bbmm_raster as generate_bbmm_raster,
 )
+from ecoscope.platform.tasks.analysis import generate_etd_raster as generate_etd_raster
 from ecoscope.platform.tasks.config import (
     any_is_non_bbmm_method_args as any_is_non_bbmm_method_args,
 )
@@ -107,9 +108,6 @@ from ecoscope.platform.tasks.transformation import (
 )
 from ecoscope.platform.tasks.transformation import convert_crs as convert_crs
 from ecoscope.platform.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_ext_custom.tasks.analysis import (
-    generate_etd_raster as generate_etd_raster_1,
-)
 from ecoscope_workflows_ext_custom.tasks.results import (
     compute_fitted_view_state as compute_fitted_view_state,
 )
@@ -468,7 +466,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
     )
 
     etd_raster = (
-        task(generate_etd_raster_1)
+        task(generate_etd_raster)
         .validate()
         .set_task_instance_id("etd_raster")
         .handle_errors()
